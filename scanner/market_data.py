@@ -67,7 +67,7 @@ class YahooChartClient:
     def __init__(self, timeout: int = 20) -> None:
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "BharatMarketFocusScanner/1.0"})
+        self.session.headers.update({"User-Agent": "TerminalXTradingScanner/1.0"})
 
     def fetch(self, symbol: str, chart_range: str = "6mo", interval: str = "1d") -> PriceSeries:
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"

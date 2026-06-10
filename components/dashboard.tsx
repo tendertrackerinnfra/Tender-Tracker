@@ -362,7 +362,7 @@ export function Dashboard() {
                   </>
                 ) : null}
               </div>
-              <h1 className="mt-2 text-3xl font-black leading-tight text-ink sm:text-4xl">Bharat Market Focus</h1>
+              <h1 className="mt-2 text-3xl font-black leading-tight text-ink sm:text-4xl">TerminalX.Trading</h1>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/70 sm:text-base">{report.summary}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

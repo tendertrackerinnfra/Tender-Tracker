@@ -31,7 +31,7 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || "Bharat Market Focus";
+  const title = data.title || "TerminalX.Trading";
   const options = {
     body: data.body || "New research alert available.",
     icon: "/icon.svg",

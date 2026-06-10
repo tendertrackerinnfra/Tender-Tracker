@@ -1,6 +1,6 @@
 {
-  "name": "Bharat Market Focus",
-  "short_name": "Market Focus",
+  "name": "TerminalX.Trading",
+  "short_name": "TerminalX",
   "description": "Research-only Indian stock market focus reports and alerts.",
   "start_url": "/",
   "display": "standalone",

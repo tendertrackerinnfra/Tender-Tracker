@@ -150,7 +150,7 @@ async function fetchChart(symbol: string): Promise<ChartSeries> {
   url.searchParams.set("interval", "1d");
 
   const response = await fetch(url, {
-    headers: { "User-Agent": "BharatMarketFocusWatchlist/1.0" },
+    headers: { "User-Agent": "TerminalXTradingWatchlist/1.0" },
     cache: "no-store"
   });
 

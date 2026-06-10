@@ -1,4 +1,4 @@
-# Bharat Market Focus
+# TerminalX.Trading
 
 A free, research-only Indian stock market PWA alert app built with Next.js, TypeScript, Tailwind CSS, Supabase, GitHub Actions, Python scanner scripts, and Web Push notifications.
 
