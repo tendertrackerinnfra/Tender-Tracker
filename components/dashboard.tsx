@@ -1,0 +1,412 @@
+"use client";
+
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  BellRing,
+  CalendarDays,
+  Gauge,
+  LineChart,
+  Newspaper,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp
+} from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { PushButton } from "@/components/push-button";
+import type { DashboardData, DashboardReportSummary, SectorScore, StockFocus, StockScore } from "@/lib/types";
+
+function pct(value: number | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "n/a";
+  }
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function score(value: number | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "--";
+  }
+  return value.toFixed(0);
+}
+
+function numberLabel(value: number | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "n/a";
+  }
+  return value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function scoreTone(value: number) {
+  if (value >= 65) {
+    return "border-mint/30 bg-mint/15 text-ink";
+  }
+  if (value <= 45) {
+    return "border-coral/30 bg-coral/15 text-ink";
+  }
+  return "border-gold/30 bg-gold/15 text-ink";
+}
+
+function heatColor(value: number) {
+  if (value >= 75) return "bg-emerald-700 text-white";
+  if (value >= 65) return "bg-emerald-600 text-white";
+  if (value >= 55) return "bg-emerald-100 text-ink";
+  if (value >= 45) return "bg-amber-100 text-ink";
+  if (value >= 35) return "bg-red-100 text-ink";
+  return "bg-red-700 text-white";
+}
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <section className={`rounded-md border border-ink/15 bg-white p-4 shadow-sm ${className}`}>{children}</section>;
+}
+
+function WidgetTitle({ icon, title, aside }: { icon: React.ReactNode; title: string; aside?: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 className="flex min-w-0 items-center gap-2 text-base font-bold text-ink">
+        {icon}
+        <span className="truncate">{title}</span>
+      </h2>
+      {aside ? <div className="shrink-0">{aside}</div> : null}
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <main className="min-h-screen bg-paper px-4 py-5">
+      <div className="mx-auto max-w-7xl space-y-4">
+        <div className="h-28 animate-pulse rounded-md bg-white" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-28 animate-pulse rounded-md bg-white" />
+          ))}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
+          <div className="h-96 animate-pulse rounded-md bg-white" />
+          <div className="h-96 animate-pulse rounded-md bg-white" />
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <main className="min-h-screen bg-paper px-4 py-8">
+      <div className="mx-auto max-w-3xl rounded-md border border-coral/30 bg-white p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-coral" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-ink">Dashboard data unavailable</h1>
+            <p className="mt-2 text-sm leading-6 text-ink/70">{message}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-ink/90"
+            >
+              <RefreshCw className="size-4" />
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function OverviewCard({
+  label,
+  value,
+  change,
+  detail,
+  icon
+}: {
+  label: string;
+  value: string;
+  change?: number;
+  detail?: string;
+  icon: React.ReactNode;
+}) {
+  const positive = typeof change === "number" && change >= 0;
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-ink/65">
+          {icon}
+          {label}
+        </div>
+        {typeof change === "number" && !Number.isNaN(change) ? (
+          <span className={positive ? "text-sm font-bold text-mint" : "text-sm font-bold text-coral"}>
+            {pct(change)}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-4 text-2xl font-bold text-ink">{value}</div>
+      {detail ? <div className="mt-2 text-xs font-semibold text-ink/55">{detail}</div> : null}
+    </Card>
+  );
+}
+
+function SectorHeatmap({ sectors }: { sectors: SectorScore[] }) {
+  return (
+    <Card>
+      <WidgetTitle icon={<BarChart3 className="size-5 text-river" />} title="Sector Heatmap" />
+      {sectors.length === 0 ? (
+        <EmptyState text="No sector rankings have been saved yet." />
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+          {sectors.map((sector) => (
+            <div key={sector.sector} className={`min-h-28 rounded-md p-3 ${heatColor(sector.sectorScore)}`}>
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-bold leading-5">{sector.sector}</h3>
+                <span className="rounded bg-white/20 px-2 py-1 text-xs font-bold">#{sector.rank}</span>
+              </div>
+              <div className="mt-4 text-3xl font-black">{score(sector.sectorScore)}</div>
+              <div className="mt-2 text-xs opacity-90">RS {score(sector.relativeStrengthScore)} · MOM {score(sector.momentumScore)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function TopSectors({ sectors }: { sectors: SectorScore[] }) {
+  return (
+    <Card>
+      <WidgetTitle icon={<TrendingUp className="size-5 text-mint" />} title="Top Sectors" />
+      <div className="space-y-3">
+        {sectors.slice(0, 5).map((sector) => (
+          <div key={sector.sector} className="rounded-md bg-paper p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold">{sector.sector}</div>
+                <div className="mt-1 text-xs text-ink/55">20D {pct(sector.twentyDayChangePercent)}</div>
+              </div>
+              <span className={`rounded-md border px-2.5 py-1 text-sm font-bold ${scoreTone(sector.sectorScore)}`}>{score(sector.sectorScore)}</span>
+            </div>
+          </div>
+        ))}
+        {sectors.length === 0 ? <EmptyState text="No sector rows available." /> : null}
+      </div>
+    </Card>
+  );
+}
+
+function TopStocks({ stocks }: { stocks: StockScore[] }) {
+  return (
+    <Card>
+      <WidgetTitle icon={<LineChart className="size-5 text-river" />} title="Top Stocks In Focus" />
+      {stocks.length === 0 ? (
+        <EmptyState text="No stock rankings have been saved yet." />
+      ) : (
+        <div className="overflow-hidden rounded-md border border-ink/10">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead className="bg-river/10 text-xs uppercase text-ink/60">
+              <tr>
+                <th className="px-3 py-3">Rank</th>
+                <th className="px-3 py-3">Stock</th>
+                <th className="px-3 py-3">Score</th>
+                <th className="hidden px-3 py-3 sm:table-cell">Move</th>
+                <th className="hidden px-3 py-3 md:table-cell">Volume</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stocks.slice(0, 20).map((stock) => (
+                <tr key={stock.symbol} className="border-t border-ink/10">
+                  <td className="px-3 py-3 font-bold text-ink/60">#{stock.rank}</td>
+                  <td className="px-3 py-3">
+                    <div className="font-bold">{stock.symbol}</div>
+                    <div className="max-w-48 truncate text-xs text-ink/55">{stock.name}</div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`rounded-md border px-2 py-1 font-bold ${scoreTone(stock.totalScore)}`}>{score(stock.totalScore)}</span>
+                  </td>
+                  <td className={stock.oneDayChangePercent >= 0 ? "hidden px-3 py-3 font-semibold text-mint sm:table-cell" : "hidden px-3 py-3 font-semibold text-coral sm:table-cell"}>
+                    {pct(stock.oneDayChangePercent)}
+                  </td>
+                  <td className="hidden px-3 py-3 md:table-cell">{stock.volumeRatio.toFixed(2)}x</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ExtremeAlerts({ alerts }: { alerts: StockFocus[] }) {
+  return (
+    <Card>
+      <WidgetTitle icon={<BellRing className="size-5 text-coral" />} title="Extreme Alerts" />
+      {alerts.length === 0 ? (
+        <EmptyState text="No extreme movement alerts in the latest report." />
+      ) : (
+        <div className="space-y-3">
+          {alerts.slice(0, 6).map((stock) => (
+            <article key={stock.symbol} className="rounded-md bg-paper p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-bold">{stock.symbol}</h3>
+                  <p className="truncate text-xs text-ink/55">{stock.name}</p>
+                </div>
+                <span className={stock.changePercent >= 0 ? "font-bold text-mint" : "font-bold text-coral"}>{pct(stock.changePercent)}</span>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-ink/65">{stock.reason}</p>
+            </article>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function RecentReports({ reports }: { reports: DashboardReportSummary[] }) {
+  return (
+    <Card>
+      <WidgetTitle icon={<Newspaper className="size-5 text-gold" />} title="Recent Reports" />
+      <div className="space-y-3">
+        {reports.map((report) => (
+          <div key={`${report.id ?? report.reportDate}-${report.session}`} className="flex items-center justify-between gap-3 rounded-md bg-paper p-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-bold capitalize">
+                <CalendarDays className="size-4 text-ink/55" />
+                {report.session}
+              </div>
+              <div className="mt-1 truncate text-xs text-ink/55">{report.reportDate} · {report.sectorInFocus}</div>
+            </div>
+            <span className={`rounded-md border px-2.5 py-1 text-xs font-bold ${report.marketMood === "Bullish" ? "border-mint/30 bg-mint/15 text-mint" : report.marketMood === "Bearish" ? "border-coral/30 bg-coral/15 text-coral" : "border-gold/30 bg-gold/15 text-gold"}`}>
+              {report.marketMood}
+            </span>
+          </div>
+        ))}
+        {reports.length === 0 ? <EmptyState text="No recent reports available." /> : null}
+      </div>
+    </Card>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="rounded-md border border-dashed border-ink/20 bg-paper p-4 text-sm text-ink/60">{text}</div>;
+}
+
+export function Dashboard() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadDashboard = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/dashboard", { cache: "no-store" });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Unable to load dashboard data.");
+      }
+
+      setData(payload as DashboardData);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load dashboard data.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  const sortedSectors = useMemo(
+    () => [...(data?.sectorScores ?? [])].sort((left, right) => left.rank - right.rank),
+    [data?.sectorScores]
+  );
+  const sortedStocks = useMemo(
+    () => [...(data?.stockScores ?? [])].sort((left, right) => left.rank - right.rank),
+    [data?.stockScores]
+  );
+
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
+
+  if (error || !data) {
+    return <ErrorState message={error ?? "Dashboard data did not load."} onRetry={loadDashboard} />;
+  }
+
+  const { report } = data;
+  const details = report.marketMoodDetails;
+  const title = report.session === "morning" ? "Morning market dashboard" : "Closing market dashboard";
+
+  return (
+    <main className="min-h-screen bg-paper">
+      <section className="px-4 pb-5 pt-4">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4">
+          <div className="flex flex-col justify-between gap-4 rounded-md border border-ink/15 bg-white p-4 shadow-sm sm:flex-row sm:items-start">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase text-ink/55">
+                <span>{title}</span>
+                <span>·</span>
+                <span>{report.reportDate}</span>
+                {data.isFallback ? (
+                  <>
+                    <span>·</span>
+                    <span>Sample data</span>
+                  </>
+                ) : null}
+              </div>
+              <h1 className="mt-2 text-3xl font-black leading-tight text-ink sm:text-4xl">Bharat Market Focus</h1>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/70 sm:text-base">{report.summary}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/watchlist"
+                className="inline-flex min-h-11 items-center gap-2 rounded-md border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-paper"
+              >
+                <BarChart3 className="size-4" />
+                Watchlist
+              </Link>
+              <Link
+                href="/notifications"
+                className="inline-flex min-h-11 items-center gap-2 rounded-md border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-paper"
+              >
+                <BellRing className="size-4" />
+                Alert analytics
+              </Link>
+              <PushButton />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <OverviewCard label="Nifty" value={numberLabel(details?.niftyValue)} change={details?.niftyChangePercent} icon={<TrendingUp className="size-4 text-mint" />} />
+            <OverviewCard label="Bank Nifty" value={numberLabel(details?.bankNiftyValue)} change={details?.bankNiftyChangePercent} icon={<BarChart3 className="size-4 text-river" />} />
+            <OverviewCard label="India VIX" value={numberLabel(details?.indiaVixValue)} change={details?.indiaVixChangePercent} icon={<Activity className="size-4 text-coral" />} />
+            <OverviewCard label="Market Mood" value={report.marketMood} detail={`Score ${score(details?.score)}/100`} icon={<Gauge className="size-4 text-gold" />} />
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 pb-6">
+        <div className="mx-auto grid max-w-7xl gap-4 xl:grid-cols-[1.5fr_0.9fr]">
+          <div className="space-y-4">
+            <SectorHeatmap sectors={sortedSectors} />
+            <TopStocks stocks={sortedStocks} />
+          </div>
+
+          <aside className="space-y-4">
+            <TopSectors sectors={sortedSectors} />
+            <ExtremeAlerts alerts={report.extremeMovementAlerts} />
+            <RecentReports reports={data.recentReports} />
+          </aside>
+        </div>
+      </section>
+    </main>
+  );
+}

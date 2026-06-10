@@ -1,0 +1,136 @@
+# Bharat Market Focus
+
+A free, research-only Indian stock market PWA alert app built with Next.js, TypeScript, Tailwind CSS, Supabase, GitHub Actions, Python scanner scripts, and Web Push notifications.
+
+## Features
+
+- Market mood snapshot
+- Sector in focus
+- Stocks in focus
+- Market intelligence scoring for Nifty trend, Bank Nifty trend, India VIX, and advance/decline ratio
+- Sector ranking with sector score, relative strength score, and momentum score
+- Top 20 stock focus ranking with relative strength, volume spike, breakout, trend strength, and neutral news-impact placeholder
+- Extreme movement alerts
+- Watchlist
+- Morning and closing reports
+- PWA manifest and service worker
+- Web Push notification subscription and send APIs
+- Alert priorities: Critical, High, Medium, Low
+- Duplicate alert prevention with Supabase notification history
+- Notification analytics page
+- Realtime watchlist engine with add, remove, track, and Watchlist Health Score
+- Supabase database schema
+- Python scanner that stores reports and can trigger push alerts
+- GitHub Actions schedule for market-day scans
+
+## Research-only disclaimer
+
+This app is for education, tracking, and personal research only. It does not provide buy, sell, hold, target-price, portfolio, financial-planning, or investment advice. Always verify data independently and consult a registered financial professional before making financial decisions.
+
+## Setup
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Create a Supabase project and run `supabase/schema.sql` in the Supabase SQL editor.
+
+   For an existing database that already has the original tables, run:
+
+   ```sql
+   -- Supabase SQL editor
+   -- paste the contents of supabase/migrations/001_market_intelligence.sql
+   ```
+
+   Then run the notification history migration:
+
+   ```sql
+   -- Supabase SQL editor
+   -- paste the contents of supabase/migrations/002_notification_history.sql
+   ```
+
+   Then run the watchlist engine migration:
+
+   ```sql
+   -- Supabase SQL editor
+   -- paste the contents of supabase/migrations/003_watchlist_engine.sql
+   ```
+
+3. Copy environment variables:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+4. Fill in `.env.local`:
+
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   NEXT_PUBLIC_VAPID_PUBLIC_KEY=your-vapid-public-key
+   VAPID_PRIVATE_KEY=your-vapid-private-key
+   VAPID_SUBJECT=mailto:you@example.com
+   SCANNER_API_KEY=choose-a-long-random-secret
+   APP_URL=http://localhost:3000
+   ```
+
+5. Generate VAPID keys:
+
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+
+6. Run the app:
+
+   ```bash
+   npm run dev
+   ```
+
+7. Run a scanner report locally:
+
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install -r scripts/requirements.txt
+   python scripts/scanner.py --session morning
+   ```
+
+8. Preview scanner output without saving:
+
+   ```bash
+   python scripts/scanner.py --session morning --dry-run
+   ```
+
+## GitHub Actions
+
+Add these repository secrets:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `APP_URL`
+- `SCANNER_API_KEY`
+
+The workflow in `.github/workflows/market-scanner.yml` runs on weekdays at:
+
+- `03:15 UTC`, roughly `08:45 IST`, for the morning report
+- `10:40 UTC`, roughly `16:10 IST`, for the closing report
+
+You can also run it manually with `workflow_dispatch`.
+
+## Notes
+
+- The scanner uses Yahoo Finance chart endpoints for Indian indices, sector indices, and `.NS` symbols as a free data source. Free feeds can be delayed, rate-limited, renamed, or unavailable.
+- Market mood is limited to `Bullish`, `Bearish`, or `Sideways` based on Nifty trend, Bank Nifty trend, India VIX, and monitored-universe advance/decline ratio.
+- Sector and stock scores are research rankings only. They are not buy, sell, hold, target-price, or allocation recommendations.
+- Critical alerts trigger for sector moves above 2%, stock moves above 5%, volume above 3x average, and market mood changes.
+- Alerts are stored in `notification_history` with a unique `alert_key` so repeated scanner runs do not send duplicate alerts.
+- Watchlist rows are stored in `watchlist_stocks`; the app subscribes to Supabase Realtime updates for that table.
+- Push notifications require HTTPS in production. Localhost works for development in most browsers.
+
+## Production
+
+- See `DEPLOYMENT.md` for the production rollout checklist.
+- See `TROUBLESHOOTING.md` for common setup, Supabase, PWA, scanner, and push-notification issues.

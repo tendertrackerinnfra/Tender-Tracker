@@ -1,0 +1,52 @@
+name: Market Scanner
+
+on:
+  workflow_dispatch:
+    inputs:
+      session:
+        description: Report session
+        required: true
+        type: choice
+        options:
+          - morning
+          - closing
+  schedule:
+    - cron: "15 3 * * 1-5"
+    - cron: "40 10 * * 1-5"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scanner dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Validate scanner syntax
+        run: python -m py_compile scripts/scanner.py scanner/*.py
+
+      - name: Run scanner
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          SCANNER_API_KEY: ${{ secrets.SCANNER_API_KEY }}
+        run: |
+          SESSION="${{ github.event.inputs.session }}"
+          if [ -z "$SESSION" ]; then
+            HOUR_UTC="$(date -u +%H)"
+            if [ "$HOUR_UTC" -lt "08" ]; then
+              SESSION="morning"
+            else
+              SESSION="closing"
+            fi
+          fi
+          python scripts/scanner.py --session "$SESSION" --notify
