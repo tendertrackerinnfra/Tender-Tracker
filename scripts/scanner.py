@@ -21,7 +21,8 @@ from scanner.stock_ranking import StockScore, rank_stocks
 from scanner.alerts import MarketAlert, generate_alerts
 from scanner.universe import INDEX_SYMBOLS, SECTOR_INDICES, STOCK_UNIVERSE
 
-load_dotenv()
+load_dotenv(PROJECT_ROOT / ".env.local", encoding="utf-8-sig")
+load_dotenv(PROJECT_ROOT / ".env", encoding="utf-8-sig")
 
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
