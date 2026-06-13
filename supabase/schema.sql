@@ -11,6 +11,7 @@ create table if not exists public.market_reports (
   extreme_movement_alerts jsonb not null default '[]'::jsonb,
   watchlist jsonb not null default '[]'::jsonb,
   catalysts jsonb not null default '{}'::jsonb,
+  options_research jsonb not null default '[]'::jsonb,
   summary text not null,
   created_at timestamptz not null default now()
 );

@@ -20,6 +20,7 @@ A free, research-only Indian stock market PWA alert app built with Next.js, Type
 - Notification analytics page
 - Realtime watchlist engine with add, remove, track, and Watchlist Health Score
 - Intraday research setup quality, attention score, support/resistance watch zones, and catalyst/news tone
+- Call/put strike research for NIFTY and BANKNIFTY using option-chain OI, OI change, volume, PCR, max pain, and trend context
 - Supabase database schema
 - Python scanner that stores reports and can trigger push alerts
 - GitHub Actions schedule for market-day scans
@@ -64,6 +65,13 @@ This app is for education, tracking, and personal research only. It does not pro
    ```sql
    -- Supabase SQL editor
    -- paste the contents of supabase/migrations/004_intraday_catalyst_setup.sql
+   ```
+
+   Then run the options research migration:
+
+   ```sql
+   -- Supabase SQL editor
+   -- paste the contents of supabase/migrations/005_options_research.sql
    ```
 
 3. Copy environment variables:
@@ -137,6 +145,8 @@ You can also run it manually with `workflow_dispatch`.
 - Market mood is limited to `Bullish`, `Bearish`, or `Sideways` based on Nifty trend, Bank Nifty trend, India VIX, and monitored-universe advance/decline ratio.
 - Sector and stock scores are research rankings only. They are not buy, sell, hold, target-price, or allocation recommendations.
 - Setup quality, attention score, and support/resistance watch zones are research context only. They are not entry calls, stop-loss levels, or trade instructions.
+- Options strike research is based on free option-chain data and is research context only. It is not an entry, exit, target, or stop-loss recommendation.
+- NIFTY and BANKNIFTY use NSE option-chain data. SENSEX options require a BSE option-chain feed before live strike ranking can be shown.
 - Catalyst scanning uses configurable free RSS/news queries. Set `MARKET_CATALYST_QUERIES` as a `|`-separated list to customize news, geopolitical, crude oil, FII/DII, currency, or sector themes.
 - The dashboard refuses stale market reports by default. Run the scanner for the latest trading day, or set `ALLOW_STALE_MARKET_REPORTS=true` only for debugging old data.
 - Critical alerts trigger for sector moves above 2%, stock moves above 5%, volume above 3x average, and market mood changes.

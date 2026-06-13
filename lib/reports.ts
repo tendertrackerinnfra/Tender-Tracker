@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
-import type { CatalystSummary, DashboardData, DashboardReportSummary, MarketMoodDetails, MarketReport, ReportSession, SectorScore, StockScore } from "@/lib/types";
+import type { CatalystSummary, DashboardData, DashboardReportSummary, IndexOptionResearch, MarketMoodDetails, MarketReport, OptionStrikeCandidate, ReportSession, SectorScore, StockScore } from "@/lib/types";
 
 type ReportRow = {
   id: string;
@@ -12,6 +12,7 @@ type ReportRow = {
   extreme_movement_alerts: MarketReport["extremeMovementAlerts"];
   watchlist: MarketReport["watchlist"];
   catalysts?: Record<string, unknown>;
+  options_research?: unknown[];
   summary: string;
   created_at: string;
 };
@@ -27,6 +28,7 @@ const reportSelect = [
   "extreme_movement_alerts",
   "watchlist",
   "catalysts",
+  "options_research",
   "summary",
   "created_at"
 ].join(",");
@@ -96,6 +98,7 @@ export function mapReportRow(row: ReportRow): MarketReport {
     extremeMovementAlerts: row.extreme_movement_alerts,
     watchlist: row.watchlist,
     catalysts: mapCatalysts(row.catalysts),
+    optionsResearch: mapOptionsResearch(row.options_research),
     summary: row.summary,
     createdAt: row.created_at
   };
@@ -204,6 +207,51 @@ function mapCatalysts(catalysts: Record<string, unknown> | undefined): CatalystS
         score: numberValue(item.score, 50)
       }))
   };
+}
+
+function mapOptionCandidate(candidate: Record<string, unknown>): OptionStrikeCandidate {
+  return {
+    index: stringValue(candidate.index),
+    optionType: stringValue(candidate.option_type || candidate.optionType, "CALL") as OptionStrikeCandidate["optionType"],
+    strike: numberValue(candidate.strike),
+    expiry: stringValue(candidate.expiry),
+    lastPrice: numberValue(candidate.last_price || candidate.lastPrice),
+    openInterest: numberValue(candidate.open_interest || candidate.openInterest),
+    changeInOpenInterest: numberValue(candidate.change_in_open_interest || candidate.changeInOpenInterest),
+    volume: numberValue(candidate.volume),
+    impliedVolatility: numberValue(candidate.implied_volatility || candidate.impliedVolatility),
+    distanceFromSpotPercent: numberValue(candidate.distance_from_spot_percent || candidate.distanceFromSpotPercent),
+    score: numberValue(candidate.score),
+    reason: stringValue(candidate.reason),
+    riskNote: stringValue(candidate.risk_note || candidate.riskNote)
+  };
+}
+
+function mapOptionsResearch(optionsResearch: unknown[] | undefined): IndexOptionResearch[] {
+  if (!Array.isArray(optionsResearch)) {
+    return [];
+  }
+
+  return optionsResearch
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
+    .map((row) => ({
+      index: stringValue(row.index),
+      spot: numberValue(row.spot),
+      expiry: stringValue(row.expiry),
+      putCallRatio: numberValue(row.putCallRatio || row.put_call_ratio),
+      maxCallOiStrike: numberValue(row.maxCallOiStrike || row.max_call_oi_strike),
+      maxPutOiStrike: numberValue(row.maxPutOiStrike || row.max_put_oi_strike),
+      maxPainStrike: numberValue(row.maxPainStrike || row.max_pain_strike),
+      trendContext: stringValue(row.trendContext || row.trend_context),
+      dataStatus: stringValue(row.dataStatus || row.data_status, "unavailable"),
+      calls: Array.isArray(row.calls)
+        ? row.calls.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object").map(mapOptionCandidate)
+        : [],
+      puts: Array.isArray(row.puts)
+        ? row.puts.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object").map(mapOptionCandidate)
+        : [],
+      note: stringValue(row.note)
+    }));
 }
 
 function mapSectorScore(row: SectorScoreRow): SectorScore {

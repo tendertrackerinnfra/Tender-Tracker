@@ -20,6 +20,7 @@ from scanner.sector_strength import SectorScore, rank_sectors
 from scanner.stock_ranking import StockScore, rank_stocks
 from scanner.alerts import MarketAlert, generate_alerts
 from scanner.catalysts import CatalystSummary, fetch_market_catalysts
+from scanner.options_chain import build_options_research
 from scanner.universe import INDEX_SYMBOLS, SECTOR_INDICES, STOCK_UNIVERSE
 
 load_dotenv(PROJECT_ROOT / ".env.local", encoding="utf-8-sig")
@@ -66,6 +67,7 @@ def build_report(
     sector_scores: list[SectorScore],
     stock_scores: list[StockScore],
     catalysts: CatalystSummary,
+    options_research: list[dict[str, object]],
 ) -> dict[str, Any]:
     sector_in_focus = sector_scores[0].sector if sector_scores else "Unavailable"
     stocks_in_focus = [_stock_focus_payload(row) for row in stock_scores[:20]]
@@ -93,6 +95,7 @@ def build_report(
         "extreme_movement_alerts": extreme_alerts,
         "watchlist": watchlist,
         "catalysts": catalysts.to_dict(),
+        "options_research": options_research,
         "summary": (
             f"{session.title()} research snapshot: market mood is {mood.mood}; "
             f"strongest sector rank is {sector_in_focus}; catalyst tone is {catalysts.sentiment}. "
@@ -374,6 +377,7 @@ def main() -> None:
     )
     sector_scores = rank_sectors(sector_series, indices["nifty"])
     stock_scores = rank_stocks(stock_series, stock_metadata, indices["nifty"], limit=20, catalyst_score=catalysts.score)
+    options_research = build_options_research(mood)
     previous_market_mood = None if args.dry_run else get_previous_market_mood()
     alerts = generate_alerts(
         report_date=dt.date.today().isoformat(),
@@ -383,7 +387,7 @@ def main() -> None:
         stock_scores=stock_scores,
         previous_market_mood=previous_market_mood,
     )
-    report = build_report(args.session, mood, sector_scores, stock_scores, catalysts)
+    report = build_report(args.session, mood, sector_scores, stock_scores, catalysts, options_research)
 
     output = {
         "report": report,
@@ -392,6 +396,7 @@ def main() -> None:
         "stock_scores": [row.to_dict() for row in stock_scores],
         "alerts": [alert.to_dict() for alert in alerts],
         "catalysts": catalysts.to_dict(),
+        "options_research": options_research,
         "research_only_disclaimer": "Research-only output. No buy/sell recommendations are generated.",
     }
 

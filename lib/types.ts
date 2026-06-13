@@ -43,6 +43,7 @@ export type MarketReport = {
   extremeMovementAlerts: StockFocus[];
   watchlist: WatchlistItem[];
   catalysts?: CatalystSummary;
+  optionsResearch: IndexOptionResearch[];
   summary: string;
   createdAt?: string;
 };
@@ -60,6 +61,37 @@ export type CatalystSummary = {
   sentiment: string;
   riskFlags: string[];
   items: CatalystItem[];
+};
+
+export type OptionStrikeCandidate = {
+  index: string;
+  optionType: "CALL" | "PUT";
+  strike: number;
+  expiry: string;
+  lastPrice: number;
+  openInterest: number;
+  changeInOpenInterest: number;
+  volume: number;
+  impliedVolatility: number;
+  distanceFromSpotPercent: number;
+  score: number;
+  reason: string;
+  riskNote: string;
+};
+
+export type IndexOptionResearch = {
+  index: string;
+  spot: number;
+  expiry: string;
+  putCallRatio: number;
+  maxCallOiStrike: number;
+  maxPutOiStrike: number;
+  maxPainStrike: number;
+  trendContext: string;
+  dataStatus: string;
+  calls: OptionStrikeCandidate[];
+  puts: OptionStrikeCandidate[];
+  note: string;
 };
 
 export type MarketMoodDetails = {

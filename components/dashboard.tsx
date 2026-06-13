@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PushButton } from "@/components/push-button";
-import type { DashboardData, DashboardReportSummary, SectorScore, StockFocus, StockScore } from "@/lib/types";
+import type { DashboardData, DashboardReportSummary, IndexOptionResearch, OptionStrikeCandidate, SectorScore, StockFocus, StockScore } from "@/lib/types";
 
 function pct(value: number | undefined) {
   if (typeof value !== "number" || Number.isNaN(value)) {
@@ -286,6 +286,114 @@ function TopStocks({ stocks }: { stocks: StockScore[] }) {
   );
 }
 
+function OptionStrikeRow({ candidate }: { candidate: OptionStrikeCandidate }) {
+  return (
+    <div className="rounded-md border border-ink/10 bg-white p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase text-ink/45">{candidate.optionType}</div>
+          <div className="mt-1 text-lg font-black text-ink">{numberLabel(candidate.strike)}</div>
+        </div>
+        <span className={`rounded-md border px-2.5 py-1 text-sm font-bold ${scoreTone(candidate.score)}`}>
+          {score(candidate.score)}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded bg-paper p-2">
+          <div className="font-semibold text-ink/50">OI</div>
+          <div className="mt-1 font-black text-ink">{numberLabel(candidate.openInterest)}</div>
+        </div>
+        <div className="rounded bg-paper p-2">
+          <div className="font-semibold text-ink/50">OI Chg</div>
+          <div className="mt-1 font-black text-ink">{numberLabel(candidate.changeInOpenInterest)}</div>
+        </div>
+        <div className="rounded bg-paper p-2">
+          <div className="font-semibold text-ink/50">Volume</div>
+          <div className="mt-1 font-black text-ink">{numberLabel(candidate.volume)}</div>
+        </div>
+        <div className="rounded bg-paper p-2">
+          <div className="font-semibold text-ink/50">IV</div>
+          <div className="mt-1 font-black text-ink">{candidate.impliedVolatility.toFixed(2)}</div>
+        </div>
+      </div>
+      <p className="mt-3 text-xs leading-5 text-ink/65">{candidate.reason}</p>
+      <p className="mt-2 text-xs leading-5 text-coral">{candidate.riskNote}</p>
+    </div>
+  );
+}
+
+function OptionsResearchPanel({ optionsResearch }: { optionsResearch: IndexOptionResearch[] }) {
+  return (
+    <Card>
+      <WidgetTitle icon={<Activity className="size-5 text-gold" />} title="Call / Put Strike Research" />
+      {optionsResearch.length === 0 ? (
+        <EmptyState text="No options research has been saved yet. Run the scanner after applying migration 005." />
+      ) : (
+        <div className="space-y-4">
+          {optionsResearch.map((item) => (
+            <article key={item.index} className="rounded-md border border-ink/10 bg-paper p-3">
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                <div>
+                  <h3 className="text-base font-black text-ink">{item.index}</h3>
+                  <p className="mt-1 text-xs leading-5 text-ink/60">{item.trendContext}</p>
+                </div>
+                <span className={`w-fit rounded-md border px-2.5 py-1 text-xs font-bold uppercase ${item.dataStatus === "ok" ? "border-mint/30 bg-mint/15 text-mint" : "border-coral/30 bg-coral/15 text-coral"}`}>
+                  {item.dataStatus}
+                </span>
+              </div>
+
+              {item.dataStatus !== "ok" ? (
+                <p className="mt-3 rounded-md bg-white p-3 text-sm leading-6 text-ink/70">{item.note}</p>
+              ) : (
+                <>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-5">
+                    <div className="rounded bg-white p-2">
+                      <div className="font-semibold text-ink/50">Spot</div>
+                      <div className="mt-1 font-black text-ink">{numberLabel(item.spot)}</div>
+                    </div>
+                    <div className="rounded bg-white p-2">
+                      <div className="font-semibold text-ink/50">PCR</div>
+                      <div className="mt-1 font-black text-ink">{item.putCallRatio.toFixed(2)}</div>
+                    </div>
+                    <div className="rounded bg-white p-2">
+                      <div className="font-semibold text-ink/50">Call OI wall</div>
+                      <div className="mt-1 font-black text-ink">{numberLabel(item.maxCallOiStrike)}</div>
+                    </div>
+                    <div className="rounded bg-white p-2">
+                      <div className="font-semibold text-ink/50">Put OI wall</div>
+                      <div className="mt-1 font-black text-ink">{numberLabel(item.maxPutOiStrike)}</div>
+                    </div>
+                    <div className="rounded bg-white p-2">
+                      <div className="font-semibold text-ink/50">Max pain</div>
+                      <div className="mt-1 font-black text-ink">{numberLabel(item.maxPainStrike)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <div>
+                      <div className="mb-2 text-xs font-black uppercase text-mint">Call watch strikes</div>
+                      <div className="space-y-2">
+                        {item.calls.map((candidate) => <OptionStrikeRow key={`${item.index}-call-${candidate.strike}`} candidate={candidate} />)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-2 text-xs font-black uppercase text-coral">Put watch strikes</div>
+                      <div className="space-y-2">
+                        {item.puts.map((candidate) => <OptionStrikeRow key={`${item.index}-put-${candidate.strike}`} candidate={candidate} />)}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-ink/55">{item.note}</p>
+                </>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function CatalystPanel({ catalysts }: { catalysts: DashboardData["report"]["catalysts"] }) {
   return (
     <Card>
@@ -483,6 +591,7 @@ export function Dashboard() {
         <div className="mx-auto grid max-w-7xl gap-4 xl:grid-cols-[1.5fr_0.9fr]">
           <div className="space-y-4">
             <SectorHeatmap sectors={sortedSectors} />
+            <OptionsResearchPanel optionsResearch={report.optionsResearch} />
             <TopStocks stocks={sortedStocks} />
           </div>
 
