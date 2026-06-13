@@ -52,15 +52,18 @@ jobs:
           SESSION="${{ github.event.inputs.session }}"
           if [ -z "$SESSION" ]; then
             HOUR_UTC="$(date -u +%H)"
-          MINUTE_UTC="$(date -u +%M)"
-          if [ "$HOUR_UTC" = "03" ]; then
-            SESSION="morning"
-          elif [ "$HOUR_UTC" = "06" ] && [ "$MINUTE_UTC" -ge "20" ]; then
-            SESSION="midday"
-          elif [ "$HOUR_UTC" = "10" ]; then
-            SESSION="closing"
-          else
-            SESSION="intraday"
+            MINUTE_UTC="$(date -u +%M)"
+
+            if [ "$HOUR_UTC" = "03" ]; then
+              SESSION="morning"
+            elif [ "$HOUR_UTC" = "06" ] && [ "$MINUTE_UTC" -ge "20" ]; then
+              SESSION="midday"
+            elif [ "$HOUR_UTC" = "10" ]; then
+              SESSION="closing"
+            else
+              SESSION="intraday"
+            fi
           fi
-          fi
+
+          echo "Running market scanner session: $SESSION"
           python scripts/scanner.py --session "$SESSION" --notify
