@@ -227,7 +227,16 @@ function TopStocks({ stocks }: { stocks: StockScore[] }) {
                     <div className="font-semibold text-ink/50">Volume</div>
                     <div className="mt-1 font-black text-ink">{stock.volumeRatio.toFixed(2)}x</div>
                   </div>
+                  <div className="rounded bg-white p-2">
+                    <div className="font-semibold text-ink/50">Setup</div>
+                    <div className="mt-1 font-black text-ink">{score(stock.setupQualityScore)}</div>
+                  </div>
+                  <div className="rounded bg-white p-2">
+                    <div className="font-semibold text-ink/50">Attention</div>
+                    <div className="mt-1 font-black text-ink">{score(stock.attentionScore)}</div>
+                  </div>
                 </div>
+                <p className="mt-3 text-xs leading-5 text-ink/65">{stock.researchNote}</p>
               </article>
             ))}
           </div>
@@ -240,6 +249,8 @@ function TopStocks({ stocks }: { stocks: StockScore[] }) {
                 <th className="px-3 py-3">Score</th>
                 <th className="hidden px-3 py-3 sm:table-cell">Move</th>
                 <th className="hidden px-3 py-3 md:table-cell">Volume</th>
+                <th className="hidden px-3 py-3 lg:table-cell">Setup</th>
+                <th className="hidden px-3 py-3 xl:table-cell">Why In Focus</th>
               </tr>
             </thead>
             <tbody>
@@ -257,12 +268,65 @@ function TopStocks({ stocks }: { stocks: StockScore[] }) {
                     {pct(stock.oneDayChangePercent)}
                   </td>
                   <td className="hidden px-3 py-3 md:table-cell">{stock.volumeRatio.toFixed(2)}x</td>
+                  <td className="hidden px-3 py-3 lg:table-cell">
+                    <div className="font-bold">{score(stock.setupQualityScore)}</div>
+                    <div className="text-xs text-ink/55">{stock.setupDirection}</div>
+                  </td>
+                  <td className="hidden max-w-sm px-3 py-3 text-xs leading-5 text-ink/65 xl:table-cell">
+                    {stock.researchNote}
+                  </td>
                 </tr>
               ))}
             </tbody>
             </table>
           </div>
         </>
+      )}
+    </Card>
+  );
+}
+
+function CatalystPanel({ catalysts }: { catalysts: DashboardData["report"]["catalysts"] }) {
+  return (
+    <Card>
+      <WidgetTitle icon={<Newspaper className="size-5 text-river" />} title="Market Catalysts" />
+      {!catalysts ? (
+        <EmptyState text="No catalyst scan has been saved yet." />
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3 rounded-md bg-paper p-3">
+            <div>
+              <div className="text-xs font-semibold uppercase text-ink/50">News tone</div>
+              <div className="mt-1 text-lg font-black capitalize text-ink">{catalysts.sentiment}</div>
+            </div>
+            <span className={`rounded-md border px-3 py-1 text-sm font-bold ${scoreTone(catalysts.score)}`}>
+              {score(catalysts.score)}
+            </span>
+          </div>
+          {catalysts.riskFlags.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {catalysts.riskFlags.map((flag) => (
+                <span key={flag} className="rounded-md border border-coral/25 bg-coral/10 px-2.5 py-1 text-xs font-bold uppercase text-coral">
+                  {flag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            {catalysts.items.slice(0, 4).map((item) => (
+              <a
+                key={item.title}
+                href={item.url || undefined}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-md bg-paper p-3 text-sm font-semibold leading-5 text-ink hover:bg-river/10"
+              >
+                {item.title}
+                <span className="mt-1 block text-xs font-medium text-ink/50">{item.source}</span>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
     </Card>
   );
@@ -371,7 +435,7 @@ export function Dashboard() {
 
   const { report } = data;
   const details = report.marketMoodDetails;
-  const title = report.session === "morning" ? "Morning market dashboard" : "Closing market dashboard";
+  const title = `${report.session} market dashboard`;
 
   return (
     <main className="min-h-screen bg-paper">
@@ -383,12 +447,6 @@ export function Dashboard() {
                 <span>{title}</span>
                 <span>·</span>
                 <span>{report.reportDate}</span>
-                {data.isFallback ? (
-                  <>
-                    <span>·</span>
-                    <span>Sample data</span>
-                  </>
-                ) : null}
               </div>
               <h1 className="mt-2 text-2xl font-black leading-tight text-ink sm:text-4xl">TerminalX.Trading</h1>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-ink/70 sm:text-base">{report.summary}</p>
@@ -430,6 +488,7 @@ export function Dashboard() {
 
           <aside className="space-y-4">
             <TopSectors sectors={sortedSectors} />
+            <CatalystPanel catalysts={report.catalysts} />
             <ExtremeAlerts alerts={report.extremeMovementAlerts} />
             <RecentReports reports={data.recentReports} />
           </aside>

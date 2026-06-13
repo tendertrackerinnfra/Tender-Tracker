@@ -1,16 +1,17 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
-import type { DashboardData, DashboardReportSummary, MarketMoodDetails, MarketReport, SectorScore, StockScore } from "@/lib/types";
+import type { CatalystSummary, DashboardData, DashboardReportSummary, MarketMoodDetails, MarketReport, ReportSession, SectorScore, StockScore } from "@/lib/types";
 
 type ReportRow = {
   id: string;
   report_date: string;
-  session: "morning" | "closing";
+  session: ReportSession;
   market_mood: MarketReport["marketMood"];
   market_mood_details?: Record<string, unknown>;
   sector_in_focus: string;
   stocks_in_focus: MarketReport["stocksInFocus"];
   extreme_movement_alerts: MarketReport["extremeMovementAlerts"];
   watchlist: MarketReport["watchlist"];
+  catalysts?: Record<string, unknown>;
   summary: string;
   created_at: string;
 };
@@ -25,6 +26,7 @@ const reportSelect = [
   "stocks_in_focus",
   "extreme_movement_alerts",
   "watchlist",
+  "catalysts",
   "summary",
   "created_at"
 ].join(",");
@@ -68,6 +70,17 @@ const stockScoreSelect = [
   "twenty_day_change_percent",
   "volume_ratio",
   "breakout_percent",
+  "attention_score",
+  "setup_quality_score",
+  "setup_direction",
+  "reference_price",
+  "support_zone_low",
+  "support_zone_high",
+  "resistance_zone_low",
+  "resistance_zone_high",
+  "historical_edge_score",
+  "risk_note",
+  "catalyst_summary",
   "research_note"
 ].join(",");
 
@@ -82,6 +95,7 @@ export function mapReportRow(row: ReportRow): MarketReport {
     stocksInFocus: row.stocks_in_focus,
     extremeMovementAlerts: row.extreme_movement_alerts,
     watchlist: row.watchlist,
+    catalysts: mapCatalysts(row.catalysts),
     summary: row.summary,
     createdAt: row.created_at
   };
@@ -91,7 +105,7 @@ type SectorScoreRow = {
   id: string;
   report_id: string;
   report_date: string;
-  session: "morning" | "closing";
+  session: ReportSession;
   rank: number;
   sector: string;
   symbol: string;
@@ -108,7 +122,7 @@ type StockScoreRow = {
   id: string;
   report_id: string;
   report_date: string;
-  session: "morning" | "closing";
+  session: ReportSession;
   rank: number;
   symbol: string;
   name: string;
@@ -124,6 +138,17 @@ type StockScoreRow = {
   twenty_day_change_percent: number | string;
   volume_ratio: number | string;
   breakout_percent: number | string;
+  attention_score?: number | string;
+  setup_quality_score?: number | string;
+  setup_direction?: string;
+  reference_price?: number | string;
+  support_zone_low?: number | string;
+  support_zone_high?: number | string;
+  resistance_zone_low?: number | string;
+  resistance_zone_high?: number | string;
+  historical_edge_score?: number | string;
+  risk_note?: string;
+  catalyst_summary?: string;
   research_note: string;
 };
 
@@ -156,6 +181,28 @@ function mapMarketMoodDetails(details: Record<string, unknown> | undefined): Mar
     indiaVixValue: numberValue(details.india_vix_value, NaN),
     indiaVixChangePercent: numberValue(details.india_vix_change_percent, NaN),
     explanation: stringValue(details.explanation)
+  };
+}
+
+function mapCatalysts(catalysts: Record<string, unknown> | undefined): CatalystSummary | undefined {
+  if (!catalysts) {
+    return undefined;
+  }
+
+  const rawItems = Array.isArray(catalysts.items) ? catalysts.items : [];
+  return {
+    score: numberValue(catalysts.score, 50),
+    sentiment: stringValue(catalysts.sentiment, "mixed"),
+    riskFlags: Array.isArray(catalysts.risk_flags) ? catalysts.risk_flags.filter((item): item is string => typeof item === "string") : [],
+    items: rawItems
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+      .map((item) => ({
+        title: stringValue(item.title),
+        source: stringValue(item.source, "News"),
+        url: stringValue(item.url),
+        sentiment: stringValue(item.sentiment, "neutral"),
+        score: numberValue(item.score, 50)
+      }))
   };
 }
 
@@ -199,6 +246,17 @@ function mapStockScore(row: StockScoreRow): StockScore {
     twentyDayChangePercent: numberValue(row.twenty_day_change_percent),
     volumeRatio: numberValue(row.volume_ratio),
     breakoutPercent: numberValue(row.breakout_percent),
+    attentionScore: numberValue(row.attention_score),
+    setupQualityScore: numberValue(row.setup_quality_score),
+    setupDirection: row.setup_direction ?? "neutral-watch",
+    referencePrice: numberValue(row.reference_price),
+    supportZoneLow: numberValue(row.support_zone_low),
+    supportZoneHigh: numberValue(row.support_zone_high),
+    resistanceZoneLow: numberValue(row.resistance_zone_low),
+    resistanceZoneHigh: numberValue(row.resistance_zone_high),
+    historicalEdgeScore: numberValue(row.historical_edge_score),
+    riskNote: row.risk_note ?? "Research-only risk context.",
+    catalystSummary: row.catalyst_summary ?? "Catalyst tone unavailable.",
     researchNote: row.research_note
   };
 }
@@ -212,6 +270,32 @@ function mapReportSummary(row: ReportRow): DashboardReportSummary {
     sectorInFocus: row.sector_in_focus,
     createdAt: row.created_at
   };
+}
+
+function latestExpectedTradingDate(now = new Date()) {
+  const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const day = date.getUTCDay();
+
+  if (day === 0) {
+    date.setUTCDate(date.getUTCDate() - 2);
+  } else if (day === 6) {
+    date.setUTCDate(date.getUTCDate() - 1);
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function assertReportIsCurrent(report: MarketReport) {
+  if (process.env.ALLOW_STALE_MARKET_REPORTS === "true") {
+    return;
+  }
+
+  const expectedDate = latestExpectedTradingDate();
+  if (report.reportDate < expectedDate) {
+    throw new Error(
+      `Latest market report is stale (${report.reportDate}). Run the Market Scanner workflow for ${expectedDate} to show current data.`
+    );
+  }
 }
 
 export async function getLatestReport(): Promise<MarketReport> {
@@ -236,7 +320,9 @@ export async function getLatestReport(): Promise<MarketReport> {
     throw new Error("No live market report found. Run the scanner to create the first report.");
   }
 
-  return mapReportRow(data as unknown as ReportRow);
+  const report = mapReportRow(data as unknown as ReportRow);
+  assertReportIsCurrent(report);
+  return report;
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
@@ -262,6 +348,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   }
 
   const report = mapReportRow(latestReport as unknown as ReportRow);
+  assertReportIsCurrent(report);
   const reportId = report.id;
 
   const [sectorResponse, stockResponse, recentReportsResponse] = await Promise.all([

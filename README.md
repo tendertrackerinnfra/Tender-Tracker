@@ -19,6 +19,7 @@ A free, research-only Indian stock market PWA alert app built with Next.js, Type
 - Duplicate alert prevention with Supabase notification history
 - Notification analytics page
 - Realtime watchlist engine with add, remove, track, and Watchlist Health Score
+- Intraday research setup quality, attention score, support/resistance watch zones, and catalyst/news tone
 - Supabase database schema
 - Python scanner that stores reports and can trigger push alerts
 - GitHub Actions schedule for market-day scans
@@ -58,6 +59,13 @@ This app is for education, tracking, and personal research only. It does not pro
    -- paste the contents of supabase/migrations/003_watchlist_engine.sql
    ```
 
+   Then run the intraday catalyst/setup migration:
+
+   ```sql
+   -- Supabase SQL editor
+   -- paste the contents of supabase/migrations/004_intraday_catalyst_setup.sql
+   ```
+
 3. Copy environment variables:
 
    ```bash
@@ -75,6 +83,8 @@ This app is for education, tracking, and personal research only. It does not pro
    VAPID_SUBJECT=mailto:you@example.com
    SCANNER_API_KEY=choose-a-long-random-secret
    APP_URL=http://localhost:3000
+   MARKET_CATALYST_QUERIES=
+   ALLOW_STALE_MARKET_REPORTS=false
    ```
 
 5. Generate VAPID keys:
@@ -116,6 +126,7 @@ Add these repository secrets:
 The workflow in `.github/workflows/market-scanner.yml` runs on weekdays at:
 
 - `03:15 UTC`, roughly `08:45 IST`, for the morning report
+- multiple intraday scans between roughly `10:20 IST` and `15:45 IST`
 - `10:40 UTC`, roughly `16:10 IST`, for the closing report
 
 You can also run it manually with `workflow_dispatch`.
@@ -125,6 +136,9 @@ You can also run it manually with `workflow_dispatch`.
 - The scanner uses Yahoo Finance chart endpoints for Indian indices, sector indices, and `.NS` symbols as a free data source. Free feeds can be delayed, rate-limited, renamed, or unavailable.
 - Market mood is limited to `Bullish`, `Bearish`, or `Sideways` based on Nifty trend, Bank Nifty trend, India VIX, and monitored-universe advance/decline ratio.
 - Sector and stock scores are research rankings only. They are not buy, sell, hold, target-price, or allocation recommendations.
+- Setup quality, attention score, and support/resistance watch zones are research context only. They are not entry calls, stop-loss levels, or trade instructions.
+- Catalyst scanning uses configurable free RSS/news queries. Set `MARKET_CATALYST_QUERIES` as a `|`-separated list to customize news, geopolitical, crude oil, FII/DII, currency, or sector themes.
+- The dashboard refuses stale market reports by default. Run the scanner for the latest trading day, or set `ALLOW_STALE_MARKET_REPORTS=true` only for debugging old data.
 - Critical alerts trigger for sector moves above 2%, stock moves above 5%, volume above 3x average, and market mood changes.
 - Alerts are stored in `notification_history` with a unique `alert_key` so repeated scanner runs do not send duplicate alerts.
 - Watchlist rows are stored in `watchlist_stocks`; the app subscribes to Supabase Realtime updates for that table.

@@ -9,8 +9,21 @@ export type StockFocus = {
   breakoutScore?: number;
   trendStrengthScore?: number;
   newsImpactScore?: number;
+  attentionScore?: number;
+  setupQualityScore?: number;
+  setupDirection?: string;
+  referencePrice?: number;
+  supportZoneLow?: number;
+  supportZoneHigh?: number;
+  resistanceZoneLow?: number;
+  resistanceZoneHigh?: number;
+  historicalEdgeScore?: number;
+  riskNote?: string;
+  catalystSummary?: string;
   reason: string;
 };
+
+export type ReportSession = "morning" | "midday" | "intraday" | "closing";
 
 export type WatchlistItem = {
   symbol: string;
@@ -22,15 +35,31 @@ export type WatchlistItem = {
 export type MarketReport = {
   id?: string;
   reportDate: string;
-  session: "morning" | "closing";
+  session: ReportSession;
   marketMood: "Bullish" | "Bearish" | "Sideways";
   marketMoodDetails?: MarketMoodDetails;
   sectorInFocus: string;
   stocksInFocus: StockFocus[];
   extremeMovementAlerts: StockFocus[];
   watchlist: WatchlistItem[];
+  catalysts?: CatalystSummary;
   summary: string;
   createdAt?: string;
+};
+
+export type CatalystItem = {
+  title: string;
+  source: string;
+  url: string;
+  sentiment: string;
+  score: number;
+};
+
+export type CatalystSummary = {
+  score: number;
+  sentiment: string;
+  riskFlags: string[];
+  items: CatalystItem[];
 };
 
 export type MarketMoodDetails = {
@@ -54,7 +83,7 @@ export type SectorScore = {
   id?: string;
   reportId?: string;
   reportDate: string;
-  session: "morning" | "closing";
+  session: ReportSession;
   rank: number;
   sector: string;
   symbol: string;
@@ -71,7 +100,7 @@ export type StockScore = {
   id?: string;
   reportId?: string;
   reportDate: string;
-  session: "morning" | "closing";
+  session: ReportSession;
   rank: number;
   symbol: string;
   name: string;
@@ -87,13 +116,24 @@ export type StockScore = {
   twentyDayChangePercent: number;
   volumeRatio: number;
   breakoutPercent: number;
+  attentionScore: number;
+  setupQualityScore: number;
+  setupDirection: string;
+  referencePrice: number;
+  supportZoneLow: number;
+  supportZoneHigh: number;
+  resistanceZoneLow: number;
+  resistanceZoneHigh: number;
+  historicalEdgeScore: number;
+  riskNote: string;
+  catalystSummary: string;
   researchNote: string;
 };
 
 export type DashboardReportSummary = {
   id?: string;
   reportDate: string;
-  session: "morning" | "closing";
+  session: ReportSession;
   marketMood: MarketReport["marketMood"];
   sectorInFocus: string;
   createdAt?: string;
@@ -104,7 +144,6 @@ export type DashboardData = {
   sectorScores: SectorScore[];
   stockScores: StockScore[];
   recentReports: DashboardReportSummary[];
-  isFallback?: boolean;
 };
 
 export type AlertPriority = "Critical" | "High" | "Medium" | "Low";
@@ -136,7 +175,6 @@ export type NotificationAnalytics = {
   byPriority: Record<AlertPriority, number>;
   byStatus: Record<NotificationStatus, number>;
   recent: NotificationHistoryItem[];
-  isFallback?: boolean;
 };
 
 export type WatchlistStock = {
@@ -164,5 +202,4 @@ export type WatchlistDashboardData = {
   stocks: WatchlistStock[];
   healthScore: number;
   trackedCount: number;
-  isFallback?: boolean;
 };

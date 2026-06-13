@@ -62,6 +62,21 @@ class PriceSeries:
             return 0.0
         return ((self.latest_close - prior_high) / prior_high) * 100
 
+    def recent_high(self, periods: int = 20) -> float:
+        values = self.highs[-periods:] if len(self.highs) >= periods else self.highs
+        return max(values) if values else self.latest_close
+
+    def recent_low(self, periods: int = 20) -> float:
+        values = self.lows[-periods:] if len(self.lows) >= periods else self.lows
+        return min(values) if values else self.latest_close
+
+    def average_range_percent(self, periods: int = 14) -> float:
+        ranges: list[float] = []
+        for high, low, close in zip(self.highs[-periods:], self.lows[-periods:], self.closes[-periods:]):
+            if close > 0:
+                ranges.append(((high - low) / close) * 100)
+        return mean(ranges) if ranges else 0.0
+
 
 class YahooChartClient:
     def __init__(self, timeout: int = 20) -> None:

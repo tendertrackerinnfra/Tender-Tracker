@@ -173,6 +173,27 @@ def _stock_alerts(report_date: str, session: str, stock: StockScore, timestamp: 
             )
         )
 
+    if stock.setup_quality_score >= 72 or stock.attention_score >= 75:
+        alerts.append(
+            MarketAlert(
+                alert_key=f"{report_date}:{session}:setup:{stock.symbol}:{round(stock.setup_quality_score, 0)}:{round(stock.attention_score, 0)}",
+                priority="High" if stock.setup_quality_score < 82 else "Critical",
+                title=f"{stock.symbol} research setup quality elevated",
+                reason=(
+                    f"{stock.name} setup quality {stock.setup_quality_score:.0f}/100 and attention score "
+                    f"{stock.attention_score:.0f}/100. Watch zones: support {stock.support_zone_low:.2f}-"
+                    f"{stock.support_zone_high:.2f}, resistance {stock.resistance_zone_low:.2f}-"
+                    f"{stock.resistance_zone_high:.2f}. {stock.risk_note}"
+                ),
+                sector=stock.sector,
+                stocks_affected=[stock.symbol],
+                alert_type="research_setup_quality",
+                trigger_value=round(stock.setup_quality_score, 2),
+                threshold_value=72,
+                timestamp=timestamp,
+            )
+        )
+
     return alerts
 
 

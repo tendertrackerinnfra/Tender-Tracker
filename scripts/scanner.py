@@ -19,6 +19,7 @@ from scanner.market_mood import MarketMoodResult, calculate_market_mood
 from scanner.sector_strength import SectorScore, rank_sectors
 from scanner.stock_ranking import StockScore, rank_stocks
 from scanner.alerts import MarketAlert, generate_alerts
+from scanner.catalysts import CatalystSummary, fetch_market_catalysts
 from scanner.universe import INDEX_SYMBOLS, SECTOR_INDICES, STOCK_UNIVERSE
 
 load_dotenv(PROJECT_ROOT / ".env.local", encoding="utf-8-sig")
@@ -64,6 +65,7 @@ def build_report(
     mood: MarketMoodResult,
     sector_scores: list[SectorScore],
     stock_scores: list[StockScore],
+    catalysts: CatalystSummary,
 ) -> dict[str, Any]:
     sector_in_focus = sector_scores[0].sector if sector_scores else "Unavailable"
     stocks_in_focus = [_stock_focus_payload(row) for row in stock_scores[:20]]
@@ -90,9 +92,10 @@ def build_report(
         "stocks_in_focus": stocks_in_focus,
         "extreme_movement_alerts": extreme_alerts,
         "watchlist": watchlist,
+        "catalysts": catalysts.to_dict(),
         "summary": (
             f"{session.title()} research snapshot: market mood is {mood.mood}; "
-            f"strongest sector rank is {sector_in_focus}. "
+            f"strongest sector rank is {sector_in_focus}; catalyst tone is {catalysts.sentiment}. "
             "Scores are for research only and are not buy/sell recommendations."
         ),
     }
@@ -110,6 +113,17 @@ def _stock_focus_payload(row: StockScore) -> dict[str, Any]:
         "breakoutScore": row.breakout_score,
         "trendStrengthScore": row.trend_strength_score,
         "newsImpactScore": row.news_impact_score,
+        "attentionScore": row.attention_score,
+        "setupQualityScore": row.setup_quality_score,
+        "setupDirection": row.setup_direction,
+        "referencePrice": row.reference_price,
+        "supportZoneLow": row.support_zone_low,
+        "supportZoneHigh": row.support_zone_high,
+        "resistanceZoneLow": row.resistance_zone_low,
+        "resistanceZoneHigh": row.resistance_zone_high,
+        "historicalEdgeScore": row.historical_edge_score,
+        "riskNote": row.risk_note,
+        "catalystSummary": row.catalyst_summary,
         "reason": row.research_note,
     }
 
@@ -186,6 +200,17 @@ def save_stock_scores(report_id: str, report: dict[str, Any], rows: list[StockSc
             "twenty_day_change_percent": row.twenty_day_change_percent,
             "volume_ratio": row.volume_ratio,
             "breakout_percent": row.breakout_percent,
+            "attention_score": row.attention_score,
+            "setup_quality_score": row.setup_quality_score,
+            "setup_direction": row.setup_direction,
+            "reference_price": row.reference_price,
+            "support_zone_low": row.support_zone_low,
+            "support_zone_high": row.support_zone_high,
+            "resistance_zone_low": row.resistance_zone_low,
+            "resistance_zone_high": row.resistance_zone_high,
+            "historical_edge_score": row.historical_edge_score,
+            "risk_note": row.risk_note,
+            "catalyst_summary": row.catalyst_summary,
             "research_note": row.research_note,
         }
         for row in rows
@@ -328,11 +353,12 @@ def send_push_alert(alert: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Create research-only Indian market intelligence reports.")
-    parser.add_argument("--session", choices=["morning", "closing"], required=True)
+    parser.add_argument("--session", choices=["morning", "midday", "intraday", "closing"], required=True)
     parser.add_argument("--notify", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Print rankings without saving to Supabase.")
     args = parser.parse_args()
 
+    catalysts = fetch_market_catalysts()
     indices, sector_series, stock_series = fetch_market_inputs()
     stock_metadata = {
         symbol: {"name": name, "sector": sector}
@@ -347,7 +373,7 @@ def main() -> None:
         stock_series=list(stock_series.values()),
     )
     sector_scores = rank_sectors(sector_series, indices["nifty"])
-    stock_scores = rank_stocks(stock_series, stock_metadata, indices["nifty"], limit=20)
+    stock_scores = rank_stocks(stock_series, stock_metadata, indices["nifty"], limit=20, catalyst_score=catalysts.score)
     previous_market_mood = None if args.dry_run else get_previous_market_mood()
     alerts = generate_alerts(
         report_date=dt.date.today().isoformat(),
@@ -357,7 +383,7 @@ def main() -> None:
         stock_scores=stock_scores,
         previous_market_mood=previous_market_mood,
     )
-    report = build_report(args.session, mood, sector_scores, stock_scores)
+    report = build_report(args.session, mood, sector_scores, stock_scores, catalysts)
 
     output = {
         "report": report,
@@ -365,6 +391,7 @@ def main() -> None:
         "sector_scores": [row.to_dict() for row in sector_scores],
         "stock_scores": [row.to_dict() for row in stock_scores],
         "alerts": [alert.to_dict() for alert in alerts],
+        "catalysts": catalysts.to_dict(),
         "research_only_disclaimer": "Research-only output. No buy/sell recommendations are generated.",
     }
 

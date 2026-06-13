@@ -163,7 +163,6 @@ export function NotificationAnalyticsView() {
                 Review alert priorities, delivery outcomes, affected sectors, and affected stocks. Research-only alerts do not contain buy/sell recommendations.
               </p>
             </div>
-            {data.isFallback ? <span className="rounded-md border border-gold/30 bg-gold/15 px-3 py-2 text-sm font-bold text-gold">Sample data</span> : null}
           </div>
         </Card>
 

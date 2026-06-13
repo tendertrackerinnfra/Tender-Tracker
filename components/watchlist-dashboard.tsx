@@ -259,7 +259,6 @@ export function WatchlistDashboard() {
                 Add, remove, and track stocks with research-only trend, momentum, relative strength, and volume scores. Supabase realtime refreshes this page when watchlist rows change.
               </p>
             </div>
-            {data.isFallback ? <span className="rounded-md border border-gold/30 bg-gold/15 px-3 py-2 text-sm font-bold text-gold">Sample data</span> : null}
           </div>
         </Card>
 

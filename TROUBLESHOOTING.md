@@ -17,6 +17,8 @@ Then open:
 
 If health is `degraded`, confirm Supabase environment variables and database migrations.
 
+If the dashboard says the latest market report is stale, run the `Market Scanner` GitHub workflow manually and confirm a new row exists in `market_reports` for the latest trading day.
+
 ## Dashboard Shows Sample Data
 
 The app falls back to sample data when Supabase server variables are missing or no reports exist.
@@ -42,6 +44,7 @@ Run:
 supabase/migrations/001_market_intelligence.sql
 supabase/migrations/002_notification_history.sql
 supabase/migrations/003_watchlist_engine.sql
+supabase/migrations/004_intraday_catalyst_setup.sql
 ```
 
 Also confirm RLS policies exist for service role operations.
@@ -85,6 +88,7 @@ python scripts/scanner.py --session morning --dry-run
 ```
 
 Free market data endpoints can be delayed, renamed, rate-limited, or temporarily unavailable.
+News/catalyst scanning uses free RSS endpoints. If these fail, the scanner records neutral or cautionary catalyst context and continues.
 
 ## Push Notifications Do Not Arrive
 
@@ -132,6 +136,7 @@ Confirm repository secrets:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `APP_URL`
 - `SCANNER_API_KEY`
+- `MARKET_CATALYST_QUERIES` if you want custom news/catalyst searches
 
 Open the `Market Scanner` workflow and run it manually with `workflow_dispatch`.
 

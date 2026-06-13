@@ -24,6 +24,8 @@ VAPID_SUBJECT=mailto:you@example.com
 SCANNER_API_KEY=
 APP_URL=https://your-production-domain.com
 MONITORING_WEBHOOK_URL=
+MARKET_CATALYST_QUERIES=
+ALLOW_STALE_MARKET_REPORTS=false
 ```
 
 ## Supabase Setup
@@ -36,6 +38,7 @@ For an existing database, run migrations in order:
 supabase/migrations/001_market_intelligence.sql
 supabase/migrations/002_notification_history.sql
 supabase/migrations/003_watchlist_engine.sql
+supabase/migrations/004_intraday_catalyst_setup.sql
 ```
 
 Confirm these tables exist:
@@ -119,7 +122,7 @@ Required repository secrets:
 Workflows:
 
 - `CI`: typecheck, lint, build, Python scanner syntax validation
-- `Market Scanner`: scheduled weekday morning/closing scanner run
+- `Market Scanner`: scheduled weekday morning, intraday, midday, and closing scanner runs
 
 ## Monitoring
 

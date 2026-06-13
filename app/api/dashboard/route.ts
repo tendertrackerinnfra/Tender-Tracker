@@ -1,11 +1,11 @@
-import { cachedJson, noStoreJson } from "@/lib/http";
+import { noStoreJson } from "@/lib/http";
 import { captureError } from "@/lib/monitoring";
 import { getDashboardData } from "@/lib/reports";
 
 export async function GET() {
   try {
     const data = await getDashboardData();
-    return cachedJson(data, 30, 120);
+    return noStoreJson(data);
   } catch (error) {
     await captureError(error, { route: "/api/dashboard" });
     return noStoreJson(
