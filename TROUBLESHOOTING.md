@@ -105,11 +105,12 @@ python scripts/realtime_worker.py --once --dry-run --ignore-market-hours
 Check:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `realtime_market_snapshots` table exists
 - `realtime_worker_health` table exists
-- Render service type is Background Worker, not Web Service
-- NSE/Yahoo free endpoints are reachable from the Render region
+- `REALTIME_POLL_SECONDS` is set for GitHub Actions, usually `60`
+- NSE/Yahoo free endpoints are reachable from the GitHub Actions runner
 
 ## Push Notifications Do Not Arrive
 
@@ -154,12 +155,15 @@ Use Chrome DevTools Application panel to inspect Manifest and Service Workers.
 Confirm repository secrets:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `APP_URL`
 - `SCANNER_API_KEY`
+- `REALTIME_POLL_SECONDS`
 - `MARKET_CATALYST_QUERIES` if you want custom news/catalyst searches
 
 Open the `Market Scanner` workflow and run it manually with `workflow_dispatch`.
+Open the `Free Realtime Scanner` workflow for realtime one-shot runs during market hours.
 
 ## Monitoring Webhook Does Not Receive Events
 

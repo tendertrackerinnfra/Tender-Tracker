@@ -93,6 +93,7 @@ This app is for education, tracking, and personal research only. It does not pro
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_URL=your-supabase-url
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    NEXT_PUBLIC_VAPID_PUBLIC_KEY=your-vapid-public-key
    VAPID_PRIVATE_KEY=your-vapid-private-key
@@ -101,6 +102,7 @@ This app is for education, tracking, and personal research only. It does not pro
    APP_URL=http://localhost:3000
    MARKET_CATALYST_QUERIES=
    ALLOW_STALE_MARKET_REPORTS=false
+   REALTIME_POLL_SECONDS=60
    ```
 
 5. Generate VAPID keys:
@@ -133,10 +135,16 @@ This app is for education, tracking, and personal research only. It does not pro
 9. Run the realtime worker once:
 
    ```bash
+   python scripts/realtime_worker.py --once --ignore-market-hours
+   ```
+
+10. Preview the realtime worker without saving:
+
+   ```bash
    python scripts/realtime_worker.py --once --dry-run --ignore-market-hours
    ```
 
-10. Run the realtime worker continuously:
+11. Run the realtime worker continuously:
 
    ```bash
    python scripts/realtime_worker.py
@@ -147,9 +155,11 @@ This app is for education, tracking, and personal research only. It does not pro
 Add these repository secrets:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `APP_URL`
 - `SCANNER_API_KEY`
+- `REALTIME_POLL_SECONDS`
 
 The workflow in `.github/workflows/market-scanner.yml` runs on weekdays at:
 
@@ -158,6 +168,8 @@ The workflow in `.github/workflows/market-scanner.yml` runs on weekdays at:
 - `10:40 UTC`, roughly `16:10 IST`, for the closing report
 
 You can also run it manually with `workflow_dispatch`.
+
+The free realtime workflow in `.github/workflows/free-realtime-scanner.yml` runs `scripts/realtime_worker.py --once` every 15 minutes from `09:15` to `15:30` IST, Monday through Friday. It performs one scan, writes realtime market intelligence to Supabase, sends eligible alerts, and exits so no paid Render or Railway worker is required.
 
 ## Notes
 

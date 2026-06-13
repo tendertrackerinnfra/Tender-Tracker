@@ -16,6 +16,7 @@ Set these in production hosting and GitHub repository secrets:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=
@@ -26,6 +27,7 @@ APP_URL=https://your-production-domain.com
 MONITORING_WEBHOOK_URL=
 MARKET_CATALYST_QUERIES=
 ALLOW_STALE_MARKET_REPORTS=false
+REALTIME_POLL_SECONDS=60
 ```
 
 ## Supabase Setup
@@ -72,34 +74,29 @@ python scripts/scanner.py --session morning --dry-run
 python scripts/realtime_worker.py --once --dry-run --ignore-market-hours
 ```
 
-## Render Realtime Worker
+## Free Realtime Scanner
 
-Create a Render Background Worker for realtime polling.
+Use GitHub Actions for free-tier realtime scans. The workflow in `.github/workflows/free-realtime-scanner.yml` runs every 15 minutes from `09:15` to `15:30` IST, Monday through Friday, and also supports `workflow_dispatch`.
 
-Settings:
+Required repository secrets:
 
-```text
-Name: terminalx-realtime-worker
-Environment: Python 3
-Build Command: pip install -r scripts/requirements.txt
-Start Command: python scripts/realtime_worker.py
-```
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `APP_URL`
+- `SCANNER_API_KEY`
+- `REALTIME_POLL_SECONDS`
 
-Environment variables:
+Each scheduled run executes:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-APP_URL=https://terminalx-trading.vercel.app
-SCANNER_API_KEY=
-REALTIME_WORKER_INTERVAL_SECONDS=60
-REALTIME_WORKER_LOG_LEVEL=INFO
+python scripts/realtime_worker.py --once --ignore-market-hours
 ```
 
 Operational notes:
 
-- Worker sleeps outside `09:15-15:30 IST`.
-- Use `python scripts/realtime_worker.py --once --dry-run --ignore-market-hours` for Render shell tests.
+- `--once` builds one market intelligence snapshot, saves it, sends eligible alerts, and exits.
+- `--ignore-market-hours` is used because the workflow schedule already limits runs to market hours.
+- Use `python scripts/realtime_worker.py --once --dry-run --ignore-market-hours` for local tests.
 - Health is written to `realtime_worker_health`.
 - Snapshots are written to `realtime_market_snapshots`.
 - Duplicate alerts are prevented by `notification_history.alert_key`.
@@ -150,14 +147,17 @@ GET /api/watchlist
 Required repository secrets:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `APP_URL`
 - `SCANNER_API_KEY`
+- `REALTIME_POLL_SECONDS`
 
 Workflows:
 
 - `CI`: typecheck, lint, build, Python scanner syntax validation
 - `Market Scanner`: scheduled weekday morning, intraday, midday, and closing scanner runs
+- `Free Realtime Scanner`: 15-minute one-shot realtime scans during Indian market hours
 
 ## Monitoring
 

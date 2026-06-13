@@ -1,0 +1,36 @@
+name: Free Realtime Scanner
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 3 * * 1-5"
+    - cron: "*/15 4-9 * * 1-5"
+    - cron: "0 10 * * 1-5"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Validate realtime worker syntax
+        run: python -m py_compile scripts/realtime_worker.py scanner/*.py
+
+      - name: Run one realtime scan
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          SCANNER_API_KEY: ${{ secrets.SCANNER_API_KEY }}
+          REALTIME_POLL_SECONDS: ${{ secrets.REALTIME_POLL_SECONDS }}
+        run: python scripts/realtime_worker.py --once --ignore-market-hours

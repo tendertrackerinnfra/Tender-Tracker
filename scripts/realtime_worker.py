@@ -32,9 +32,9 @@ UTC = dt.timezone.utc
 WORKER_NAME = "terminalx-realtime-worker"
 MARKET_OPEN = dt.time(9, 15)
 MARKET_CLOSE = dt.time(15, 30)
-POLL_SECONDS = int(os.getenv("REALTIME_WORKER_INTERVAL_SECONDS", "60"))
+POLL_SECONDS = int(os.getenv("REALTIME_POLL_SECONDS") or os.getenv("REALTIME_WORKER_INTERVAL_SECONDS", "60"))
 
-SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 APP_URL = os.getenv("APP_URL", "https://terminalx-trading.vercel.app")
 SCANNER_API_KEY = os.getenv("SCANNER_API_KEY")
