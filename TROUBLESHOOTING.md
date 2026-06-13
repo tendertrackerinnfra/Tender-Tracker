@@ -46,6 +46,7 @@ supabase/migrations/002_notification_history.sql
 supabase/migrations/003_watchlist_engine.sql
 supabase/migrations/004_intraday_catalyst_setup.sql
 supabase/migrations/005_options_research.sql
+supabase/migrations/006_realtime_worker.sql
 ```
 
 Also confirm RLS policies exist for service role operations.
@@ -90,6 +91,25 @@ python scripts/scanner.py --session morning --dry-run
 
 Free market data endpoints can be delayed, renamed, rate-limited, or temporarily unavailable.
 News/catalyst scanning uses free RSS endpoints. If these fail, the scanner records neutral or cautionary catalyst context and continues.
+
+## Realtime Worker Fails
+
+Run:
+
+```bash
+pip install -r scripts/requirements.txt
+python -m py_compile scripts/realtime_worker.py scanner/*.py
+python scripts/realtime_worker.py --once --dry-run --ignore-market-hours
+```
+
+Check:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `realtime_market_snapshots` table exists
+- `realtime_worker_health` table exists
+- Render service type is Background Worker, not Web Service
+- NSE/Yahoo free endpoints are reachable from the Render region
 
 ## Push Notifications Do Not Arrive
 

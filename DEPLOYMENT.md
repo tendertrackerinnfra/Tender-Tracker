@@ -40,6 +40,7 @@ supabase/migrations/002_notification_history.sql
 supabase/migrations/003_watchlist_engine.sql
 supabase/migrations/004_intraday_catalyst_setup.sql
 supabase/migrations/005_options_research.sql
+supabase/migrations/006_realtime_worker.sql
 ```
 
 Confirm these tables exist:
@@ -68,7 +69,40 @@ Python scanner verification:
 pip install -r scripts/requirements.txt
 python -m py_compile scripts/scanner.py scanner/*.py
 python scripts/scanner.py --session morning --dry-run
+python scripts/realtime_worker.py --once --dry-run --ignore-market-hours
 ```
+
+## Render Realtime Worker
+
+Create a Render Background Worker for realtime polling.
+
+Settings:
+
+```text
+Name: terminalx-realtime-worker
+Environment: Python 3
+Build Command: pip install -r scripts/requirements.txt
+Start Command: python scripts/realtime_worker.py
+```
+
+Environment variables:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+APP_URL=https://terminalx-trading.vercel.app
+SCANNER_API_KEY=
+REALTIME_WORKER_INTERVAL_SECONDS=60
+REALTIME_WORKER_LOG_LEVEL=INFO
+```
+
+Operational notes:
+
+- Worker sleeps outside `09:15-15:30 IST`.
+- Use `python scripts/realtime_worker.py --once --dry-run --ignore-market-hours` for Render shell tests.
+- Health is written to `realtime_worker_health`.
+- Snapshots are written to `realtime_market_snapshots`.
+- Duplicate alerts are prevented by `notification_history.alert_key`.
 
 ## Health Checks
 
