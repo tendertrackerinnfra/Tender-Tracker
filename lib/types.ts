@@ -189,6 +189,19 @@ export type DashboardData = {
   sectorScores: SectorScore[];
   stockScores: StockScore[];
   recentReports: DashboardReportSummary[];
+  livePrices: LivePriceItem[];
+  liveUpdatedAt?: string;
+};
+
+export type LivePriceItem = {
+  symbol: string;
+  name: string;
+  group: "index" | "stock";
+  price?: number;
+  changePercent?: number;
+  confidenceScore?: number;
+  riskScore?: number;
+  attentionScore?: number;
 };
 
 export type AlertPriority = "Critical" | "High" | "Medium" | "Low";

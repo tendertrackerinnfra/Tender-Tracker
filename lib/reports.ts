@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
-import type { CatalystSummary, DashboardData, DashboardReportSummary, IndexOptionResearch, MarketMoodDetails, MarketReport, OptionStrikeCandidate, ReportSession, SectorScore, StockScore } from "@/lib/types";
+import type { CatalystSummary, DashboardData, DashboardReportSummary, IndexOptionResearch, LivePriceItem, MarketMoodDetails, MarketReport, OptionStrikeCandidate, ReportSession, SectorScore, StockScore } from "@/lib/types";
 
 type ReportRow = {
   id: string;
@@ -212,6 +212,11 @@ type StockScoreRow = {
   research_note: string;
 };
 
+type RealtimeSnapshotRow = {
+  snapshot_at: string;
+  attention_scores?: unknown[];
+};
+
 function numberValue(value: unknown, fallback = 0) {
   const numeric = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
@@ -375,6 +380,71 @@ function mapStockScore(row: StockScoreRow): StockScore {
   };
 }
 
+function mapLivePriceItem(row: Record<string, unknown>): LivePriceItem {
+  return {
+    symbol: stringValue(row.symbol),
+    name: stringValue(row.name || row.symbol),
+    group: "stock",
+    price: numberValue(row.referencePrice || row.reference_price, NaN),
+    changePercent: numberValue(row.changePercent || row.change_percent, NaN),
+    confidenceScore: numberValue(row.confidenceScore || row.confidence_score, NaN),
+    riskScore: numberValue(row.riskScore || row.risk_score, NaN),
+    attentionScore: numberValue(row.attentionScore || row.attention_score, NaN)
+  };
+}
+
+function buildLivePrices(report: MarketReport, stocks: StockScore[], realtimeSnapshot?: RealtimeSnapshotRow | null): LivePriceItem[] {
+  const details = report.marketMoodDetails;
+  const indices: LivePriceItem[] = [
+    {
+      symbol: "NIFTY",
+      name: "Nifty",
+      group: "index",
+      price: details?.niftyValue,
+      changePercent: details?.niftyChangePercent,
+      attentionScore: details?.niftyTrendScore
+    },
+    {
+      symbol: "BANKNIFTY",
+      name: "Bank Nifty",
+      group: "index",
+      price: details?.bankNiftyValue,
+      changePercent: details?.bankNiftyChangePercent,
+      attentionScore: details?.bankNiftyTrendScore
+    },
+    {
+      symbol: "INDIA VIX",
+      name: "India VIX",
+      group: "index",
+      price: details?.indiaVixValue,
+      changePercent: details?.indiaVixChangePercent,
+      attentionScore: details?.indiaVixScore
+    }
+  ];
+
+  const realtimeRows = Array.isArray(realtimeSnapshot?.attention_scores)
+    ? realtimeSnapshot.attention_scores
+        .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+        .map(mapLivePriceItem)
+        .filter((item) => item.symbol)
+    : [];
+
+  const stockRows = realtimeRows.length > 0
+    ? realtimeRows
+    : stocks.slice(0, 8).map((stock) => ({
+        symbol: stock.symbol,
+        name: stock.name,
+        group: "stock" as const,
+        price: stock.referencePrice,
+        changePercent: stock.oneDayChangePercent,
+        confidenceScore: stock.confidenceScore,
+        riskScore: stock.riskScore,
+        attentionScore: stock.attentionScore
+      }));
+
+  return [...indices, ...stockRows.slice(0, 8)];
+}
+
 function mapReportSummary(row: ReportRow): DashboardReportSummary {
   return {
     id: row.id,
@@ -532,10 +602,21 @@ export async function getDashboardData(): Promise<DashboardData> {
     throw new Error(recentReportsResponse.error.message);
   }
 
+  const { data: realtimeSnapshot } = await supabase
+    .from("realtime_market_snapshots")
+    .select("snapshot_at,attention_scores")
+    .order("snapshot_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const mappedStocks = ((stockRows ?? []) as unknown as StockScoreRow[]).map(mapStockScore);
+
   return {
     report,
     sectorScores: ((sectorResponse.data ?? []) as unknown as SectorScoreRow[]).map(mapSectorScore),
-    stockScores: ((stockRows ?? []) as unknown as StockScoreRow[]).map(mapStockScore),
-    recentReports: ((recentReportsResponse.data ?? []) as unknown as ReportRow[]).map(mapReportSummary)
+    stockScores: mappedStocks,
+    recentReports: ((recentReportsResponse.data ?? []) as unknown as ReportRow[]).map(mapReportSummary),
+    livePrices: buildLivePrices(report, mappedStocks, realtimeSnapshot as RealtimeSnapshotRow | null),
+    liveUpdatedAt: (realtimeSnapshot as RealtimeSnapshotRow | null)?.snapshot_at ?? report.createdAt
   };
 }

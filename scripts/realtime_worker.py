@@ -216,6 +216,7 @@ def attention_payload(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "riskScore": row["risk_score"],
             "attentionScore": row["attention_score"],
             "setupQualityScore": row["setup_quality_score"],
+            "referencePrice": row["reference_price"],
             "changePercent": row["one_day_change_percent"],
             "volumeRatio": row["volume_ratio"],
             "whyInFocus": row["why_in_focus"],

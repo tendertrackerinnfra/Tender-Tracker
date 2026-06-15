@@ -6,6 +6,7 @@ import {
   BarChart3,
   BellRing,
   CalendarDays,
+  Clock3,
   Gauge,
   LineChart,
   Newspaper,
@@ -16,7 +17,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PushButton } from "@/components/push-button";
-import type { DashboardData, DashboardReportSummary, IndexOptionResearch, OptionStrikeCandidate, SectorScore, StockFocus, StockScore } from "@/lib/types";
+import type { DashboardData, DashboardReportSummary, IndexOptionResearch, LivePriceItem, OptionStrikeCandidate, SectorScore, StockFocus, StockScore } from "@/lib/types";
 
 function pct(value: number | undefined) {
   if (typeof value !== "number" || Number.isNaN(value)) {
@@ -37,6 +38,17 @@ function numberLabel(value: number | undefined) {
     return "n/a";
   }
   return value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function timeLabel(value: string | undefined) {
+  if (!value) {
+    return "n/a";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "n/a";
+  }
+  return parsed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 }
 
 function scoreTone(value: number) {
@@ -157,6 +169,53 @@ function OverviewCard({
       </div>
       <div className="mt-3 text-2xl font-bold text-ink sm:mt-4">{value}</div>
       {detail ? <div className="mt-2 text-xs font-semibold text-ink/55">{detail}</div> : null}
+    </Card>
+  );
+}
+
+function LivePriceStrip({ prices, updatedAt }: { prices: LivePriceItem[]; updatedAt?: string }) {
+  return (
+    <Card className="p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <WidgetTitle icon={<Activity className="size-5 text-mint" />} title="Live Price Watch" aside={null} />
+        <div className="flex items-center gap-1 text-xs font-semibold text-ink/55">
+          <Clock3 className="size-3.5" />
+          {timeLabel(updatedAt)}
+        </div>
+      </div>
+      {prices.length === 0 ? (
+        <EmptyState text="No live price rows available yet." />
+      ) : (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {prices.map((item) => (
+            <div key={`${item.group}-${item.symbol}`} className="min-w-40 rounded-md border border-ink/10 bg-paper p-3 sm:min-w-44">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-black text-ink">{item.symbol}</div>
+                  <div className="mt-1 truncate text-xs text-ink/50">{item.name}</div>
+                </div>
+                <span className={`rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase ${item.group === "index" ? "border-river/25 bg-river/10 text-river" : "border-ink/10 bg-white text-ink/55"}`}>
+                  {item.group}
+                </span>
+              </div>
+              <div className="mt-3 text-xl font-black text-ink">{numberLabel(item.price)}</div>
+              <div className={typeof item.changePercent === "number" && item.changePercent >= 0 ? "mt-1 text-sm font-bold text-mint" : "mt-1 text-sm font-bold text-coral"}>
+                {pct(item.changePercent)}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-1 text-[11px]">
+                <div className="rounded bg-white px-2 py-1">
+                  <span className="block font-semibold text-ink/45">Conf</span>
+                  <span className="font-black text-ink">{score(item.confidenceScore ?? item.attentionScore)}</span>
+                </div>
+                <div className="rounded bg-white px-2 py-1">
+                  <span className="block font-semibold text-ink/45">Risk</span>
+                  <span className="font-black text-ink">{score(item.riskScore)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
@@ -353,9 +412,28 @@ function OptionStrikeRow({ candidate }: { candidate: OptionStrikeCandidate }) {
 }
 
 function OptionsResearchPanel({ optionsResearch }: { optionsResearch: IndexOptionResearch[] }) {
+  const [activeTab, setActiveTab] = useState<"CALL" | "PUT">("CALL");
+
   return (
     <Card>
-      <WidgetTitle icon={<Activity className="size-5 text-gold" />} title="Call / Put Strike Research" />
+      <WidgetTitle
+        icon={<Activity className="size-5 text-gold" />}
+        title="Call / Put Strike Research"
+        aside={
+          <div className="grid grid-cols-2 overflow-hidden rounded-md border border-ink/15 bg-paper p-0.5">
+            {(["CALL", "PUT"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`min-h-8 px-3 text-xs font-black ${activeTab === tab ? "rounded bg-ink text-white" : "text-ink/60 hover:text-ink"}`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        }
+      />
       {optionsResearch.length === 0 ? (
         <EmptyState text="No options research has been saved yet. Run the scanner after applying migration 005." />
       ) : (
@@ -399,18 +477,18 @@ function OptionsResearchPanel({ optionsResearch }: { optionsResearch: IndexOptio
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                    <div>
-                      <div className="mb-2 text-xs font-black uppercase text-mint">Call watch strikes</div>
-                      <div className="space-y-2">
-                        {item.calls.map((candidate) => <OptionStrikeRow key={`${item.index}-call-${candidate.strike}`} candidate={candidate} />)}
-                      </div>
+                  <div className="mt-3">
+                    <div className={activeTab === "CALL" ? "mb-2 text-xs font-black uppercase text-mint" : "mb-2 text-xs font-black uppercase text-coral"}>
+                      {activeTab === "CALL" ? "Call watch strikes" : "Put watch strikes"}
                     </div>
-                    <div>
-                      <div className="mb-2 text-xs font-black uppercase text-coral">Put watch strikes</div>
-                      <div className="space-y-2">
-                        {item.puts.map((candidate) => <OptionStrikeRow key={`${item.index}-put-${candidate.strike}`} candidate={candidate} />)}
-                      </div>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {(activeTab === "CALL" ? item.calls : item.puts).length > 0 ? (
+                        (activeTab === "CALL" ? item.calls : item.puts).map((candidate) => (
+                          <OptionStrikeRow key={`${item.index}-${activeTab}-${candidate.strike}`} candidate={candidate} />
+                        ))
+                      ) : (
+                        <EmptyState text={`No ${activeTab.toLowerCase()} strike candidates saved for this index.`} />
+                      )}
                     </div>
                   </div>
                   <p className="mt-3 text-xs leading-5 text-ink/55">{item.note}</p>
@@ -554,6 +632,13 @@ export function Dashboard() {
     void loadDashboard();
   }, [loadDashboard]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void loadDashboard();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadDashboard]);
+
   const sortedSectors = useMemo(
     () => [...(data?.sectorScores ?? [])].sort((left, right) => left.rank - right.rank),
     [data?.sectorScores]
@@ -614,6 +699,7 @@ export function Dashboard() {
             <OverviewCard label="India VIX" value={numberLabel(details?.indiaVixValue)} change={details?.indiaVixChangePercent} icon={<Activity className="size-4 text-coral" />} />
             <OverviewCard label="Market Mood" value={report.marketMood} detail={`Score ${score(details?.score)}/100`} icon={<Gauge className="size-4 text-gold" />} />
           </div>
+          <LivePriceStrip prices={data.livePrices} updatedAt={data.liveUpdatedAt} />
         </div>
       </section>
 
