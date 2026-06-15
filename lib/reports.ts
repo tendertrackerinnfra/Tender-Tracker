@@ -387,13 +387,20 @@ function mapReportSummary(row: ReportRow): DashboardReportSummary {
 }
 
 function latestExpectedTradingDate(now = new Date()) {
-  const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+  const date = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()));
+  const istMinutes = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
   const day = date.getUTCDay();
 
   if (day === 0) {
     date.setUTCDate(date.getUTCDate() - 2);
   } else if (day === 6) {
     date.setUTCDate(date.getUTCDate() - 1);
+  } else if (istMinutes < 9 * 60 + 30) {
+    date.setUTCDate(date.getUTCDate() - 1);
+    while (date.getUTCDay() === 0 || date.getUTCDay() === 6) {
+      date.setUTCDate(date.getUTCDate() - 1);
+    }
   }
 
   return date.toISOString().slice(0, 10);
