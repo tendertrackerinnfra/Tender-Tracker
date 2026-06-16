@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, FileText, Loader2, Upload } from "lucide-react";
+import { ArrowLeft, Check, FileText, Loader2, Upload, XCircle } from "lucide-react";
+import { AppShell } from "@/components/app-shell";
 import type { ScheduledNotification, TenderExtraction, TenderFieldDebug, TenderInput, TenderInputKey } from "@/lib/tender-types";
 import { normalizeTenderInput } from "@/lib/tender-types";
 import { blankTender, formFields, fromInputDate, requiredPreviewFields, toInputDate } from "@/components/tender-ui";
@@ -101,62 +102,64 @@ export function UploadTender() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-20 text-slate-950 md:pb-0">
-      <UploadHeader />
-      <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Upload Tender</p>
-            <h1 className="mt-1 text-2xl font-semibold">Extract tender details</h1>
-          </div>
-          <Link href="/" className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold">
-            <ArrowLeft className="size-4" />
-            Back to Dashboard
-          </Link>
-        </div>
+    <AppShell
+      title="Upload Tender"
+      kicker="Document extraction"
+      actions={
+        <Link href="/" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold">
+          <ArrowLeft className="size-4" />
+          Back to Dashboard
+        </Link>
+      }
+    >
+      <div className="space-y-5 pb-24 md:pb-6">
+        {message ? <Banner message={message} /> : null}
 
-        {message ? <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">{message}</div> : null}
-
-        <section className="grid gap-5 lg:grid-cols-2">
+        <section className="grid gap-5 xl:grid-cols-2">
           <UploadBox
-            title="Upload RFP/NIT/Tender PDF"
-            description="Use this for original government tender documents. Scanned PDFs use OCR fallback."
-            buttonLabel="Select tender PDF"
+            title="Upload RFP / NIT / Tender PDF"
+            description="Supported format: PDF. Original tender files can use browser OCR fallback if scanned."
+            buttonLabel="Select Tender PDF"
             isExtracting={isExtracting}
             inputRef={tenderFileRef}
             onFile={extractPdf}
           />
           <UploadBox
             title="Upload ChatGPT TT_ Template PDF"
-            description="Use this for the Standard Tender Tracker template. TT_ labels are parsed exactly."
-            buttonLabel="Select TT_ template PDF"
+            description="Use the Standard Tender Tracker template when you want exact field extraction without fuzzy matching."
+            buttonLabel="Select TT_ Template PDF"
             isExtracting={isExtracting}
             inputRef={templateFileRef}
             onFile={extractPdf}
           />
         </section>
 
-        {ocrProgress ? <p className="text-sm font-medium text-emerald-800">{ocrProgress}</p> : null}
+        {isExtracting ? <ExtractionSkeleton /> : null}
+        {ocrProgress ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">{ocrProgress}</div> : null}
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Editable Preview</h2>
+            <div>
+              <h2 className="text-lg font-semibold">Editable Preview</h2>
+              <p className="mt-1 text-sm text-slate-500">Review required fields, key dates, and extraction confidence before adding the tender.</p>
+            </div>
             {preview ? (
-              <button onClick={clearPreview} className="text-sm font-semibold text-slate-500">
+              <button onClick={clearPreview} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600">
+                <XCircle className="size-4" />
                 Clear
               </button>
             ) : null}
           </div>
 
           {notes.length > 0 ? (
-            <div className="mt-3 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            <div className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
               {notes.map((note) => (
                 <p key={note}>{note}</p>
               ))}
             </div>
           ) : null}
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
             {formFields.map((field) => {
               const debug = extractionDebug[field.key];
               const value = preview?.[field.key] ?? "";
@@ -168,19 +171,17 @@ export function UploadTender() {
                 ? "border-red-400 bg-red-50 focus:border-red-600 focus:ring-red-100"
                 : isLowConfidence || isMediumConfidence
                   ? "border-amber-400 bg-amber-50 focus:border-amber-600 focus:ring-amber-100"
-                  : "border-slate-300 focus:border-emerald-600 focus:ring-emerald-100";
+                  : "border-slate-300 bg-slate-50 focus:border-emerald-600 focus:ring-emerald-100";
 
               return (
                 <label key={field.key} className="grid gap-1 text-sm font-medium text-slate-700">
                   <span className="flex items-center justify-between gap-2">
-                    {field.label}
-                    {isBlankRequired ? (
-                      <span className="text-xs font-semibold text-red-700">Required</span>
-                    ) : debug ? (
-                      <span className={debug.confidence === "high" ? "text-xs font-semibold text-emerald-700" : "text-xs font-semibold text-amber-700"}>
-                        {debug.confidence}
-                      </span>
-                    ) : null}
+                    <span>{field.label}</span>
+                    {isRequired ? (
+                      <span className={isBlankRequired ? "text-xs font-semibold text-red-700" : "text-xs font-semibold text-slate-500"}>Required</span>
+                    ) : (
+                      <span className="text-xs text-slate-400">Optional</span>
+                    )}
                   </span>
                   <input
                     value={field.type === "datetime-local" ? toInputDate(preview?.[field.key]) : preview?.[field.key] ?? ""}
@@ -191,41 +192,29 @@ export function UploadTender() {
                       }))
                     }
                     type={field.type ?? "text"}
-                    className={`rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 ${inputTone}`}
+                    className={`rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 ${inputTone}`}
                   />
-                  {debug?.sourceLineText ? (
-                    <span className="text-xs font-normal text-slate-500">
-                      Line {debug.sourceLineNumber ?? "-"}: {debug.sourceLineText.slice(0, 120)}
-                    </span>
-                  ) : null}
+                  <span className="text-xs text-slate-500">
+                    {debug?.sourceLineText
+                      ? `Line ${debug.sourceLineNumber ?? "-"}: ${debug.sourceLineText.slice(0, 120)}`
+                      : isRequired
+                        ? "Required for tender import."
+                        : "Optional field."}
+                  </span>
                 </label>
               );
             })}
           </div>
 
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <button
-              onClick={saveTender}
-              disabled={!preview || isSaving}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              Add Tender
-            </button>
-            <button onClick={clearPreview} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold">
-              Clear
-            </button>
-          </div>
-
           {rawPreviewText ? (
             <>
-              <details className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+              <details className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <summary className="cursor-pointer text-sm font-semibold text-slate-700">View extracted PDF text</summary>
                 <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-700">{rawPreviewText}</pre>
               </details>
-              <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+              <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <summary className="cursor-pointer text-sm font-semibold text-slate-700">View extraction debug</summary>
-                <div className="mt-3 max-h-72 overflow-auto">
+                <div className="mt-3 overflow-x-auto">
                   <table className="min-w-full text-left text-xs">
                     <thead className="text-slate-500">
                       <tr>
@@ -258,29 +247,40 @@ export function UploadTender() {
             </>
           ) : null}
         </section>
+
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-6xl gap-2">
+            <button onClick={clearPreview} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">
+              Clear
+            </button>
+            <button
+              onClick={saveTender}
+              disabled={!preview || isSaving}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Add Tender
+            </button>
+          </div>
+        </div>
+
+        <div className="hidden md:flex md:justify-end">
+          <button
+            onClick={saveTender}
+            disabled={!preview || isSaving}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+            Add Tender
+          </button>
+        </div>
       </div>
-    </main>
+    </AppShell>
   );
 }
 
-function UploadHeader() {
-  return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Civil Consultancy</p>
-          <p className="mt-1 text-xl font-semibold">Tender Tracker</p>
-        </div>
-        <nav className="flex flex-wrap gap-2 text-sm font-semibold">
-          <Link className="rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100" href="/">Dashboard</Link>
-          <Link className="rounded-md bg-slate-950 px-3 py-2 text-white" href="/upload">Upload Tender</Link>
-          <Link className="rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100" href="/calendar">Calendar</Link>
-          <Link className="rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100" href="/reports">Reports</Link>
-          <Link className="rounded-md px-3 py-2 text-slate-700 hover:bg-slate-100" href="/settings">Settings</Link>
-        </nav>
-      </div>
-    </header>
-  );
+function Banner({ message }: { message: string }) {
+  return <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-[0_8px_20px_rgba(15,23,42,0.05)]">{message}</div>;
 }
 
 function UploadBox({
@@ -306,10 +306,10 @@ function UploadBox({
         const file = event.dataTransfer.files[0];
         if (file) void onFile(file);
       }}
-      className="rounded-lg border-2 border-dashed border-slate-300 bg-white p-5"
+      className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
     >
       <div className="flex items-start gap-3">
-        <div className="rounded-md bg-emerald-100 p-2 text-emerald-800">
+        <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-800">
           <Upload className="size-5" />
         </div>
         <div>
@@ -330,12 +330,27 @@ function UploadBox({
       />
       <button
         onClick={() => inputRef.current?.click()}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
+        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white"
         disabled={isExtracting}
       >
         {isExtracting ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
         {isExtracting ? "Extracting details" : buttonLabel}
       </button>
+    </div>
+  );
+}
+
+function ExtractionSkeleton() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+      <div className="space-y-3">
+        <div className="h-5 w-48 animate-pulse rounded bg-slate-100" />
+        <div className="grid gap-3 md:grid-cols-2">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="h-16 animate-pulse rounded-2xl bg-slate-100" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

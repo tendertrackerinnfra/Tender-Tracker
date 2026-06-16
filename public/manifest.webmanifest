@@ -7,8 +7,8 @@
   "id": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
-  "background_color": "#f8fafc",
-  "theme_color": "#f8fafc",
+  "background_color": "#eef4ef",
+  "theme_color": "#166534",
   "orientation": "any",
   "categories": ["business", "productivity", "utilities"],
   "icons": [
@@ -40,7 +40,12 @@
     {
       "name": "Upload Tender PDF",
       "short_name": "Upload",
-      "url": "/#upload"
+      "url": "/upload"
+    },
+    {
+      "name": "Calendar",
+      "short_name": "Calendar",
+      "url": "/calendar"
     }
   ]
 }

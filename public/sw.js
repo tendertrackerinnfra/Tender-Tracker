@@ -1,6 +1,8 @@
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open("tender-tracker-static-v1").then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"]))
+    caches.open("tender-tracker-static-v2").then((cache) =>
+      cache.addAll(["/", "/upload", "/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"])
+    )
   );
   self.skipWaiting();
 });
@@ -24,7 +26,7 @@ self.addEventListener("fetch", (event) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request);
+      return fetch(event.request).catch(() => caches.match("/offline"));
     })
   );
 });

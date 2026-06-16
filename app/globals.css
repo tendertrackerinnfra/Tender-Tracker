@@ -5,18 +5,58 @@
 :root {
   color-scheme: light;
   background: #f8fafc;
+  --tt-bg: #f8fafc;
+  --tt-panel: #ffffff;
+  --tt-border: #dbe4dc;
+  --tt-text: #0f172a;
+  --tt-muted: #64748b;
+  --tt-primary: #166534;
+  --tt-primary-deep: #0f172a;
+  --tt-accent: #d97706;
+  --tt-critical: #dc2626;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   min-height: 100vh;
-  background: #f8fafc;
-  color: #0f172a;
+  background:
+    radial-gradient(circle at top left, rgba(22, 101, 52, 0.08), transparent 28%),
+    linear-gradient(180deg, #eef4ef 0%, #f8fafc 22%, #f8fafc 100%);
+  color: var(--tt-text);
   -webkit-tap-highlight-color: transparent;
 }
 
 button,
 input {
   font: inherit;
+}
+
+button,
+select,
+input,
+textarea {
+  min-width: 0;
+}
+
+a,
+button {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+img,
+svg {
+  display: block;
+}
+
+pre {
+  overflow-wrap: anywhere;
 }
 
 @supports (padding: max(0px)) {
@@ -28,6 +68,6 @@ input {
 
 @media (max-width: 767px) {
   body {
-    padding-bottom: calc(env(safe-area-inset-bottom) + 4.75rem);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 5.25rem);
   }
 }
