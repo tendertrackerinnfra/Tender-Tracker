@@ -3,22 +3,22 @@ import { MobileNav } from "@/components/mobile-nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TerminalX.Trading",
-  description: "Research-only Indian stock market focus reports and movement alerts.",
+  title: "Tender Tracker",
+  description: "Civil consultancy tender tracking PWA with PDF extraction, reminders, and import/export.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "TerminalX"
+    title: "Tender Tracker"
   },
-  applicationName: "TerminalX.Trading",
+  applicationName: "Tender Tracker",
   formatDetection: {
     telephone: false
   }
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f8f7f2",
+  themeColor: "#f8fafc",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover"

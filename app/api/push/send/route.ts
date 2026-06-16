@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import type { PushSubscription } from "web-push";
 import { configureWebPush } from "@/lib/web-push";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -6,19 +6,15 @@ import { noStoreJson } from "@/lib/http";
 import { captureError } from "@/lib/monitoring";
 
 export async function POST(request: NextRequest) {
-  const apiKey = request.headers.get("x-scanner-api-key");
-  if (apiKey !== process.env.SCANNER_API_KEY) {
+  const expectedApiKey = process.env.TENDER_TRACKER_API_KEY;
+  const apiKey = request.headers.get("x-tender-tracker-api-key");
+  if (!expectedApiKey || apiKey !== expectedApiKey) {
     return noStoreJson({ error: "Unauthorized" }, { status: 401 });
   }
 
   const {
     title,
     body,
-    reason,
-    sector,
-    stocksAffected = [],
-    timestamp,
-    priority,
     url = "/"
   } = await request.json();
   const supabase = getSupabaseAdmin();
@@ -34,24 +30,9 @@ export async function POST(request: NextRequest) {
   }
 
   const webpush = configureWebPush();
-  const formattedBody =
-    body ??
-    [
-      reason ? `Reason: ${reason}` : null,
-      sector ? `Sector: ${sector}` : null,
-      Array.isArray(stocksAffected) && stocksAffected.length > 0 ? `Stocks affected: ${stocksAffected.join(", ")}` : "Stocks affected: Broad market",
-      timestamp ? `Timestamp: ${new Date(timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST` : null
-    ]
-      .filter(Boolean)
-      .join("\n");
   const payload = JSON.stringify({
-    title,
-    body: formattedBody,
-    reason,
-    sector,
-    stocksAffected,
-    timestamp,
-    priority,
+    title: title ?? "Tender Tracker",
+    body: body ?? "Tender reminder due.",
     url
   });
   const results = await Promise.allSettled(

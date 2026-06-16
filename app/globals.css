@@ -4,13 +4,13 @@
 
 :root {
   color-scheme: light;
-  background: #f8f7f2;
+  background: #f8fafc;
 }
 
 body {
   min-height: 100vh;
-  background: #f8f7f2;
-  color: #1d2433;
+  background: #f8fafc;
+  color: #0f172a;
   -webkit-tap-highlight-color: transparent;
 }
 

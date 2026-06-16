@@ -5,18 +5,18 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 export async function GET() {
   const checks = {
     app: true,
-    supabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-    supabaseServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-    vapidPublicKey: Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY),
-    vapidPrivateKey: Boolean(process.env.VAPID_PRIVATE_KEY),
-    scannerApiKey: Boolean(process.env.SCANNER_API_KEY),
+    supabaseUrl: Boolean(process.env.NEXT_PUBLIC_TENDER_TRACKER_SUPABASE_URL),
+    supabaseServiceRole: Boolean(process.env.TENDER_TRACKER_SUPABASE_SERVICE_ROLE_KEY),
+    vapidPublicKey: Boolean(process.env.NEXT_PUBLIC_TENDER_TRACKER_VAPID_PUBLIC_KEY),
+    vapidPrivateKey: Boolean(process.env.TENDER_TRACKER_VAPID_PRIVATE_KEY),
+    tenderTrackerApiKey: Boolean(process.env.TENDER_TRACKER_API_KEY),
     database: false
   };
 
   try {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { error } = await supabase.from("market_reports").select("id").limit(1);
+      const { error } = await supabase.from("tenders").select("id").limit(1);
       checks.database = !error;
       if (error) {
         await captureError(error, { route: "/api/health", phase: "database_check" });

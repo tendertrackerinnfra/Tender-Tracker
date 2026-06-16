@@ -1,16 +1,16 @@
 {
-  "name": "TerminalX.Trading",
-  "short_name": "TerminalX",
-  "description": "Research-only Indian stock market focus reports and alerts.",
+  "name": "Tender Tracker",
+  "short_name": "Tenders",
+  "description": "Civil consultancy tender tracker with PDF extraction, key-date dashboard, reminders, and spreadsheet import/export.",
   "start_url": "/",
   "scope": "/",
   "id": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
-  "background_color": "#f8f7f2",
-  "theme_color": "#f8f7f2",
-  "orientation": "portrait-primary",
-  "categories": ["finance", "productivity"],
+  "background_color": "#f8fafc",
+  "theme_color": "#f8fafc",
+  "orientation": "any",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -33,14 +33,14 @@
   ],
   "shortcuts": [
     {
-      "name": "Watchlist",
-      "short_name": "Watchlist",
-      "url": "/watchlist"
+      "name": "Tender Dashboard",
+      "short_name": "Dashboard",
+      "url": "/"
     },
     {
-      "name": "Alert Analytics",
-      "short_name": "Alerts",
-      "url": "/notifications"
+      "name": "Upload Tender PDF",
+      "short_name": "Upload",
+      "url": "/#upload"
     }
   ]
 }

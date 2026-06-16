@@ -1,6 +1,6 @@
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open("bmc-static-v1").then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"]))
+    caches.open("tender-tracker-static-v1").then((cache) => cache.addAll(["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"]))
   );
   self.skipWaiting();
 });
@@ -31,13 +31,13 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || "TerminalX.Trading";
+  const title = data.title || "Tender Tracker";
   const options = {
-    body: data.body || "New research alert available.",
-    icon: "/icon.svg",
-    badge: "/icon.svg",
+    body: data.body || "Tender reminder due.",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
     tag: data.title,
-    renotify: data.priority === "Critical",
+    renotify: true,
     data: { url: data.url || "/" }
   };
 
