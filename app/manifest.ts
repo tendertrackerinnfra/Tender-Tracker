@@ -1,0 +1,55 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Tender Tracker",
+    short_name: "Tenders",
+    description: "Civil consultancy tender tracker with PDF extraction, key-date dashboard, reminders, and spreadsheet import/export.",
+    start_url: "/",
+    scope: "/",
+    id: "/",
+    display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
+    background_color: "#eef4ef",
+    theme_color: "#166534",
+    orientation: "any",
+    categories: ["business", "productivity", "utilities"],
+    icons: [
+      {
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: "/icon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "maskable"
+      }
+    ],
+    shortcuts: [
+      {
+        name: "Tender Dashboard",
+        short_name: "Dashboard",
+        url: "/"
+      },
+      {
+        name: "Upload Tender PDF",
+        short_name: "Upload",
+        url: "/upload"
+      },
+      {
+        name: "Calendar",
+        short_name: "Calendar",
+        url: "/calendar"
+      }
+    ]
+  };
+}

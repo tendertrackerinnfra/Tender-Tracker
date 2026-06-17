@@ -1,7 +1,7 @@
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open("tender-tracker-static-v3").then((cache) =>
-      cache.addAll(["/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"])
+      cache.addAll(["/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon"])
     )
   );
   self.skipWaiting();
@@ -57,7 +57,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body || "Tender reminder due.",
     icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    badge: "/icon",
     tag: data.title,
     renotify: true,
     data: { url: data.url || "/" }
