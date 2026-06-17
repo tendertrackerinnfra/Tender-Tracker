@@ -105,6 +105,59 @@ function toRow(tender: Tender): TenderRow {
   };
 }
 
+function toLegacyRow(tender: Tender) {
+  return {
+    id: tender.id,
+    tender_name: tender.tenderName,
+    authority: tender.authority,
+    open_date: tender.openDate,
+    last_date: tender.lastDate,
+    pre_bid_date: tender.preBidDate,
+    tender_id: tender.tenderId,
+    emd: tender.emd,
+    tender_fee: tender.tenderFee,
+    estimated_cost: tender.estimatedCost,
+    bid_validity: tender.bidValidity,
+    work_completion_period: tender.workCompletionPeriod,
+    portal_name: tender.portalName,
+    source_file_name: tender.sourceFileName ?? null,
+    raw_text: tender.rawText ?? null,
+    created_at: tender.createdAt,
+    updated_at: tender.updatedAt
+  };
+}
+
+function toLegacyPatch(patch: TenderInput) {
+  return {
+    tender_name: patch.tenderName,
+    authority: patch.authority,
+    open_date: patch.openDate,
+    last_date: patch.lastDate,
+    pre_bid_date: patch.preBidDate,
+    tender_id: patch.tenderId,
+    emd: patch.emd,
+    tender_fee: patch.tenderFee,
+    estimated_cost: patch.estimatedCost,
+    bid_validity: patch.bidValidity,
+    work_completion_period: patch.workCompletionPeriod,
+    portal_name: patch.portalName,
+    source_file_name: patch.sourceFileName ?? null,
+    raw_text: patch.rawText ?? null,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function isSchemaCompatibilityError(message: string) {
+  const text = message.toLowerCase();
+  return (
+    text.includes("could not find the") ||
+    text.includes("column") ||
+    text.includes("schema cache") ||
+    text.includes("does not exist") ||
+    text.includes("relation")
+  );
+}
+
 async function ensureDataDir() {
   await fs.mkdir(dataDir, { recursive: true });
 }
@@ -203,11 +256,26 @@ export async function createTender(input: TenderInput): Promise<{ tender: Tender
 
   const supabase = getSupabaseAdmin();
   if (supabase) {
-    const { data, error } = await supabase.from("tenders").insert(toRow(tender)).select("*").single();
-    if (error) throw new Error(error.message);
+    let data: TenderRow | null = null;
+    let errorMessage = "";
+    {
+      const result = await supabase.from("tenders").insert(toRow(tender)).select("*").single();
+      if (!result.error) {
+        data = result.data as TenderRow;
+      } else if (isSchemaCompatibilityError(result.error.message)) {
+        const legacy = await supabase.from("tenders").insert(toLegacyRow(tender)).select("*").single();
+        if (legacy.error) {
+          throw new Error(legacy.error.message);
+        }
+        data = legacy.data as TenderRow;
+      } else {
+        errorMessage = result.error.message;
+      }
+    }
+    if (!data) throw new Error(errorMessage || "Unable to save tender.");
     const created = fromRow(data as TenderRow);
     const notifications = await replaceTenderNotifications(created);
-    await createAppNotification({
+    await safeCreateNotification({
       type: "tenderAdded",
       title: "Tender added successfully",
       body: `${created.tenderName || created.tenderId || "Tender"} was added to the dashboard.`,
@@ -216,7 +284,7 @@ export async function createTender(input: TenderInput): Promise<{ tender: Tender
       isImportant: false,
       tenderId: created.id
     });
-    await createAppNotification({
+    await safeCreateNotification({
       type: "reminderScheduled",
       title: "Reminder scheduled",
       body: `${notifications.length} reminder${notifications.length === 1 ? "" : "s"} scheduled for ${created.tenderName || created.tenderId || "tender"}.`,
@@ -226,7 +294,7 @@ export async function createTender(input: TenderInput): Promise<{ tender: Tender
       tenderId: created.id
     });
     if (!created.tenderName || !created.authority || !created.lastDate) {
-      await createUniqueNotification({
+      await safeCreateUniqueNotification({
         sourceRef: `missingRequiredFields:${created.id}:create`,
         type: "missingRequiredFields",
         title: "Tender has missing required fields",
@@ -244,7 +312,7 @@ export async function createTender(input: TenderInput): Promise<{ tender: Tender
   tenders.push(tender);
   await writeJsonFile(tendersFile, tenders);
   const notifications = await replaceTenderNotifications(tender);
-  await createAppNotification({
+  await safeCreateNotification({
     type: "tenderAdded",
     title: "Tender added successfully",
     body: `${tender.tenderName || tender.tenderId || "Tender"} was added to the dashboard.`,
@@ -253,7 +321,7 @@ export async function createTender(input: TenderInput): Promise<{ tender: Tender
     isImportant: false,
     tenderId: tender.id
   });
-  await createAppNotification({
+  await safeCreateNotification({
     type: "reminderScheduled",
     title: "Reminder scheduled",
     body: `${notifications.length} reminder${notifications.length === 1 ? "" : "s"} scheduled for ${tender.tenderName || tender.tenderId || "tender"}.`,
@@ -270,42 +338,58 @@ export async function updateTender(id: string, input: TenderInput): Promise<{ te
   const supabase = getSupabaseAdmin();
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from("tenders")
-      .update({
-        tender_name: patch.tenderName,
-        authority: patch.authority,
-        open_date: patch.openDate,
-        last_date: patch.lastDate,
-        pre_bid_date: patch.preBidDate,
-        tender_id: patch.tenderId,
-        emd: patch.emd,
-        tender_fee: patch.tenderFee,
-        estimated_cost: patch.estimatedCost,
-        bid_validity: patch.bidValidity,
-        work_completion_period: patch.workCompletionPeriod,
-        portal_name: patch.portalName,
-        selection_method: patch.selectionMethod,
-        similar_work_criteria: patch.similarWorkCriteria,
-        technical_eligibility: patch.technicalEligibility,
-        financial_eligibility: patch.financialEligibility,
-        required_key_personnel: patch.requiredKeyPersonnel,
-        required_machinery: patch.requiredMachinery,
-        physical_document_submission: patch.physicalDocumentSubmission,
-        documents_required: patch.documentsRequired,
-        work_location: patch.workLocation,
-        client_department: patch.clientDepartment,
-        source_file_name: patch.sourceFileName ?? null,
-        raw_text: patch.rawText ?? null,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id)
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
+    let data: TenderRow | null = null;
+    let errorMessage = "";
+    {
+      const result = await supabase
+        .from("tenders")
+        .update({
+          tender_name: patch.tenderName,
+          authority: patch.authority,
+          open_date: patch.openDate,
+          last_date: patch.lastDate,
+          pre_bid_date: patch.preBidDate,
+          tender_id: patch.tenderId,
+          emd: patch.emd,
+          tender_fee: patch.tenderFee,
+          estimated_cost: patch.estimatedCost,
+          bid_validity: patch.bidValidity,
+          work_completion_period: patch.workCompletionPeriod,
+          portal_name: patch.portalName,
+          selection_method: patch.selectionMethod,
+          similar_work_criteria: patch.similarWorkCriteria,
+          technical_eligibility: patch.technicalEligibility,
+          financial_eligibility: patch.financialEligibility,
+          required_key_personnel: patch.requiredKeyPersonnel,
+          required_machinery: patch.requiredMachinery,
+          physical_document_submission: patch.physicalDocumentSubmission,
+          documents_required: patch.documentsRequired,
+          work_location: patch.workLocation,
+          client_department: patch.clientDepartment,
+          source_file_name: patch.sourceFileName ?? null,
+          raw_text: patch.rawText ?? null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (!result.error) {
+        data = result.data as TenderRow;
+      } else if (isSchemaCompatibilityError(result.error.message)) {
+        const legacy = await supabase.from("tenders").update(toLegacyPatch(patch)).eq("id", id).select("*").single();
+        if (legacy.error) {
+          throw new Error(legacy.error.message);
+        }
+        data = legacy.data as TenderRow;
+      } else {
+        errorMessage = result.error.message;
+      }
+    }
+    if (!data) throw new Error(errorMessage || "Unable to update tender.");
     const tender = fromRow(data as TenderRow);
     const notifications = await replaceTenderNotifications(tender);
-    await createAppNotification({
+    await safeCreateNotification({
       type: "tenderUpdated",
       title: "Tender updated",
       body: `${tender.tenderName || tender.tenderId || "Tender"} was updated.`,
@@ -314,7 +398,7 @@ export async function updateTender(id: string, input: TenderInput): Promise<{ te
       isImportant: false,
       tenderId: tender.id
     });
-    await createAppNotification({
+    await safeCreateNotification({
       type: "reminderScheduled",
       title: "Reminder scheduled",
       body: `${notifications.length} reminder${notifications.length === 1 ? "" : "s"} rescheduled for ${tender.tenderName || tender.tenderId || "tender"}.`,
@@ -332,7 +416,7 @@ export async function updateTender(id: string, input: TenderInput): Promise<{ te
   tenders[index] = { ...tenders[index], ...patch, updatedAt: new Date().toISOString() };
   await writeJsonFile(tendersFile, tenders);
   const notifications = await replaceTenderNotifications(tenders[index]);
-  await createAppNotification({
+  await safeCreateNotification({
     type: "tenderUpdated",
     title: "Tender updated",
     body: `${tenders[index].tenderName || tenders[index].tenderId || "Tender"} was updated.`,
@@ -341,7 +425,7 @@ export async function updateTender(id: string, input: TenderInput): Promise<{ te
     isImportant: false,
     tenderId: tenders[index].id
   });
-  await createAppNotification({
+  await safeCreateNotification({
     type: "reminderScheduled",
     title: "Reminder scheduled",
     body: `${notifications.length} reminder${notifications.length === 1 ? "" : "s"} rescheduled for ${tenders[index].tenderName || tenders[index].tenderId || "tender"}.`,
@@ -358,11 +442,11 @@ export async function deleteTender(id: string) {
   const supabase = getSupabaseAdmin();
   if (supabase) {
     const notificationDelete = await supabase.from("tender_notifications").delete().eq("tender_id", id);
-    if (notificationDelete.error) throw new Error(notificationDelete.error.message);
+    if (notificationDelete.error && !isSchemaCompatibilityError(notificationDelete.error.message)) throw new Error(notificationDelete.error.message);
     const tenderDelete = await supabase.from("tenders").delete().eq("id", id);
     if (tenderDelete.error) throw new Error(tenderDelete.error.message);
     if (existing) {
-      await createAppNotification({
+      await safeCreateNotification({
         type: "tenderDeleted",
         title: "Tender deleted",
         body: `${existing.tenderName || existing.tenderId || "Tender"} was deleted.`,
@@ -382,7 +466,7 @@ export async function deleteTender(id: string) {
   );
   await removeTenderNotifications(id);
   if (existing) {
-    await createAppNotification({
+    await safeCreateNotification({
       type: "tenderDeleted",
       title: "Tender deleted",
       body: `${existing.tenderName || existing.tenderId || "Tender"} was deleted.`,
@@ -405,9 +489,10 @@ export async function replaceTenderNotifications(tender: Tender) {
 
   if (supabase) {
     const notificationDelete = await supabase.from("tender_notifications").delete().eq("tender_id", tender.id);
-    if (notificationDelete.error) throw new Error(notificationDelete.error.message);
+    if (notificationDelete.error && !isSchemaCompatibilityError(notificationDelete.error.message)) throw new Error(notificationDelete.error.message);
     if (notifications.length > 0) {
-      const { error } = await supabase.from("tender_notifications").insert(
+      let errorMessage = "";
+      const primary = await supabase.from("tender_notifications").insert(
         notifications.map((notification) => ({
           id: notification.id,
           tender_id: notification.tenderId,
@@ -421,7 +506,26 @@ export async function replaceTenderNotifications(tender: Tender) {
           created_at: notification.createdAt
         }))
       );
-      if (error) throw new Error(error.message);
+      if (primary.error && isSchemaCompatibilityError(primary.error.message)) {
+        const legacy = await supabase.from("tender_notifications").insert(
+          notifications.map((notification) => ({
+            id: notification.id,
+            tender_id: notification.tenderId,
+            kind: notification.kind,
+            label: notification.label,
+            notify_at: notification.notifyAt,
+            title: notification.title,
+            body: notification.body,
+            created_at: notification.createdAt
+          }))
+        );
+        if (legacy.error && !isSchemaCompatibilityError(legacy.error.message)) {
+          throw new Error(legacy.error.message);
+        }
+      } else if (primary.error) {
+        errorMessage = primary.error.message;
+      }
+      if (errorMessage) throw new Error(errorMessage);
     }
     return notifications;
   }
@@ -504,4 +608,24 @@ function addSameDayReminder(
     sourceRef: `${kind}:${tender.id}:${label}:${notifyAt.toISOString()}`,
     createdAt: new Date().toISOString()
   });
+}
+
+async function safeCreateNotification(
+  input: Parameters<typeof createAppNotification>[0]
+) {
+  try {
+    await createAppNotification(input);
+  } catch {
+    return;
+  }
+}
+
+async function safeCreateUniqueNotification(
+  input: Parameters<typeof createUniqueNotification>[0]
+) {
+  try {
+    await createUniqueNotification(input);
+  } catch {
+    return;
+  }
 }

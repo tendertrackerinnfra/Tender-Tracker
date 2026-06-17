@@ -112,11 +112,24 @@ async function writeJsonFile<T>(filePath: string, value: T) {
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+function isSchemaCompatibilityError(message: string) {
+  const text = message.toLowerCase();
+  return (
+    text.includes("does not exist") ||
+    text.includes("relation") ||
+    text.includes("schema cache") ||
+    text.includes("could not find")
+  );
+}
+
 export async function getNotificationSettings(): Promise<NotificationSettings> {
   const supabase = getSupabaseAdmin();
   if (supabase) {
     const { data, error } = await supabase.from("notification_settings").select("*").eq("id", "default").maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (isSchemaCompatibilityError(error.message)) return defaultSettings;
+      throw new Error(error.message);
+    }
     if (!data) return defaultSettings;
     return fromSettingsRow(data as NotificationSettingsRow);
   }
@@ -142,7 +155,10 @@ export async function updateNotificationSettings(patch: Partial<NotificationSett
       updated_at: new Date().toISOString()
     };
     const { error } = await supabase.from("notification_settings").upsert(row, { onConflict: "id" });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (isSchemaCompatibilityError(error.message)) return next;
+      throw new Error(error.message);
+    }
     return next;
   }
 
@@ -157,7 +173,10 @@ export async function listAppNotifications(filter: "all" | "unread" | "important
     if (filter === "unread") query = query.eq("is_read", false);
     if (filter === "important") query = query.eq("is_important", true);
     const { data, error } = await query.limit(200);
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (isSchemaCompatibilityError(error.message)) return [];
+      throw new Error(error.message);
+    }
     return ((data ?? []) as AppNotificationRow[]).map(fromNotificationRow);
   }
 
@@ -177,7 +196,10 @@ export async function createAppNotification(input: Omit<AppNotification, "id" | 
   const supabase = getSupabaseAdmin();
   if (supabase) {
     const { error } = await supabase.from("app_notifications").upsert(toNotificationRow(notification), { onConflict: "id" });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (isSchemaCompatibilityError(error.message)) return notification;
+      throw new Error(error.message);
+    }
     return notification;
   }
 
@@ -200,7 +222,10 @@ export async function findNotificationBySourceRef(sourceRef: string) {
   const supabase = getSupabaseAdmin();
   if (supabase) {
     const { data, error } = await supabase.from("app_notifications").select("*").eq("source_ref", sourceRef).maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (isSchemaCompatibilityError(error.message)) return null;
+      throw new Error(error.message);
+    }
     return data ? fromNotificationRow(data as AppNotificationRow) : null;
   }
 
@@ -212,7 +237,7 @@ export async function markNotificationRead(id: string) {
   const supabase = getSupabaseAdmin();
   if (supabase) {
     const { error } = await supabase.from("app_notifications").update({ is_read: true }).eq("id", id);
-    if (error) throw new Error(error.message);
+    if (error && !isSchemaCompatibilityError(error.message)) throw new Error(error.message);
     return;
   }
 
@@ -227,7 +252,7 @@ export async function clearAllNotifications() {
   const supabase = getSupabaseAdmin();
   if (supabase) {
     const { error } = await supabase.from("app_notifications").delete().neq("id", "");
-    if (error) throw new Error(error.message);
+    if (error && !isSchemaCompatibilityError(error.message)) throw new Error(error.message);
     return;
   }
   await writeJsonFile(appNotificationsFile, []);
@@ -237,7 +262,10 @@ export async function getUnreadNotificationCount() {
   const supabase = getSupabaseAdmin();
   if (supabase) {
     const { count, error } = await supabase.from("app_notifications").select("*", { count: "exact", head: true }).eq("is_read", false);
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (isSchemaCompatibilityError(error.message)) return 0;
+      throw new Error(error.message);
+    }
     return count ?? 0;
   }
   const all = await readJsonFile<AppNotification[]>(appNotificationsFile, []);
