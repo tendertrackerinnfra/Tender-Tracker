@@ -1,14 +1,10 @@
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open("tender-tracker-static-v2").then((cache) =>
-      cache.addAll(["/", "/upload", "/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"])
+    caches.open("tender-tracker-static-v3").then((cache) =>
+      cache.addAll(["/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"])
     )
   );
   self.skipWaiting();
-});
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener("fetch", (event) => {
@@ -21,6 +17,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          event.waitUntil(caches.open("tender-tracker-static-v3").then((cache) => cache.put(event.request, copy)));
+          return response;
+        })
+        .catch(async () => {
+          const cachedPage = await caches.match(event.request);
+          return cachedPage || caches.match("/offline");
+        })
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -28,6 +40,14 @@ self.addEventListener("fetch", (event) => {
       }
       return fetch(event.request).catch(() => caches.match("/offline"));
     })
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== "tender-tracker-static-v3").map((key) => caches.delete(key)))
+    ).then(() => self.clients.claim())
   );
 });
 
