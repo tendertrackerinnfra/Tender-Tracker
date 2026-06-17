@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Bell, Plus } from "lucide-react";
+import { useNotificationCenter } from "@/components/notification-client";
 
 export function TopBar({
   title,
@@ -13,6 +14,7 @@ export function TopBar({
   kicker: string;
   actions?: ReactNode;
 }) {
+  const { unreadCount } = useNotificationCenter();
   const today = new Intl.DateTimeFormat("en-IN", {
     day: "2-digit",
     month: "short",
@@ -40,13 +42,18 @@ export function TopBar({
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <button
-              type="button"
+            <Link
+              href="/notifications"
               aria-label="Notifications"
-              className="inline-flex size-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm"
+              className="relative inline-flex size-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm"
             >
               <Bell className="size-4" />
-            </button>
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              ) : null}
+            </Link>
             <Link
               href="/upload"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(22,101,52,0.2)]"

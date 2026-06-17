@@ -11,6 +11,9 @@ import {
   Download,
   Eye,
   FileSpreadsheet,
+  Filter,
+  MoreHorizontal,
+  ChevronDown,
   Pencil,
   Plus,
   Search,
@@ -59,6 +62,9 @@ export function Dashboard() {
   const [viewTender, setViewTender] = useState<Tender | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [editTender, setEditTender] = useState<TenderInput | null>(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -82,20 +88,32 @@ export function Dashboard() {
     const matchesDateTo = !state.dateTo || (lastDate && lastDate <= new Date(`${state.dateTo}T23:59:59`));
     return matchesSearch && matchesStatus && matchesPortal && matchesDateFrom && matchesDateTo;
   });
+  const sortedTenders = [...filteredTenders].sort((a, b) => compareTenderDates(a.lastDate, b.lastDate));
 
   const alerts = {
-    today: filteredTenders.filter((tender) => daysLeft(tender.lastDate) === 0),
-    tomorrow: filteredTenders.filter((tender) => daysLeft(tender.lastDate) === 1),
-    week: filteredTenders.filter((tender) => {
+    today: sortedTenders.filter((tender) => daysLeft(tender.lastDate) === 0),
+    tomorrow: sortedTenders.filter((tender) => daysLeft(tender.lastDate) === 1),
+    week: sortedTenders.filter((tender) => {
       const left = daysLeft(tender.lastDate);
       return left !== null && left >= 0 && left <= 7;
     }),
-    preBid: filteredTenders.filter((tender) => {
+    preBid: sortedTenders.filter((tender) => {
       const left = daysLeft(tender.preBidDate);
       return left !== null && left >= 0 && left <= 7;
     }),
-    incomplete: filteredTenders.filter((tender) => !tender.tenderName || !tender.authority || !tender.lastDate || !tender.documentsRequired)
+    incomplete: sortedTenders.filter((tender) => !tender.tenderName || !tender.authority || !tender.lastDate || !tender.documentsRequired)
   };
+  const nextDeadline =
+    sortedTenders
+      .filter((tender) => {
+        const left = daysLeft(tender.lastDate);
+        return left !== null && left >= 0;
+      })
+      .sort((a, b) => {
+        const aLeft = daysLeft(a.lastDate) ?? Number.MAX_SAFE_INTEGER;
+        const bLeft = daysLeft(b.lastDate) ?? Number.MAX_SAFE_INTEGER;
+        return aLeft - bLeft;
+      })[0] ?? null;
 
   const summary = [
     {
@@ -264,9 +282,69 @@ export function Dashboard() {
               event.currentTarget.value = "";
             }}
           />
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setShowMobileActions(false);
+                setShowMobileFilters((current) => !current);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+            >
+              <Filter className="size-4" />
+              Filters
+            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileFilters(false);
+                  setShowMobileActions((current) => !current);
+                }}
+                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white p-2 text-slate-700"
+                aria-label="More actions"
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+              {showMobileActions ? (
+                <div className="absolute right-0 top-12 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+                  <button
+                    onClick={() => {
+                      setShowMobileActions(false);
+                      importInputRef.current?.click();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <FileSpreadsheet className="size-4" />
+                    Import
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMobileActions(false);
+                      exportRows("csv");
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Download className="size-4" />
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMobileActions(false);
+                      exportRows("xlsx");
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Download className="size-4" />
+                    Export Excel
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
           <Link href="/upload" className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(21,128,61,0.18)]">
             <Plus className="size-4" />
-            Add Tender
+            <span className="hidden sm:inline">Add Tender</span>
           </Link>
         </>
       }
@@ -274,27 +352,58 @@ export function Dashboard() {
       <div className="space-y-5">
         {state.message ? <Banner message={state.message} /> : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <section className="hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {summary.map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.label} className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] ${item.accent}`}>
-                <div className="flex items-center justify-between gap-3">
+              <div
+                key={item.label}
+                className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ${item.accent}`}
+              >
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-700">{item.label}</p>
-                    <p className="mt-1 text-xs text-slate-500">{item.note}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{item.note}</p>
                   </div>
-                  <div className="rounded-xl bg-slate-100 p-2 text-slate-700">
+                  <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700">
                     <Icon className="size-4" />
                   </div>
                 </div>
-                <p className="mt-5 text-3xl font-semibold tracking-tight text-slate-950">{item.value}</p>
+                <p className="mt-6 text-3xl font-semibold tracking-tight text-slate-950">{item.value}</p>
               </div>
             );
           })}
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+        <section className="space-y-3 sm:hidden">
+          <div className="grid grid-cols-2 gap-3">
+            {summary.slice(0, 4).map((item) => (
+              <CompactMetricCard key={item.label} label={item.label} value={item.value} note={item.note} />
+            ))}
+          </div>
+
+          <NextDeadlineCard tender={nextDeadline} />
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Important Alerts</h2>
+                <p className="text-xs text-slate-500">Counts only for quick follow-up.</p>
+              </div>
+              <button className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                View
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <CompactAlertCount label="Closing today" count={alerts.today.length} tone="Critical" />
+              <CompactAlertCount label="Tomorrow" count={alerts.tomorrow.length} tone="Urgent" />
+              <CompactAlertCount label="Within 7 days" count={alerts.week.length} tone="Upcoming" />
+              <CompactAlertCount label="Incomplete" count={alerts.incomplete.length} tone="Closed" />
+            </div>
+          </div>
+        </section>
+
+        <section className="hidden rounded-2xl border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.06)] sm:block">
           <div className="border-b border-slate-200 px-5 py-4">
             <div className="flex items-center gap-2">
               <TriangleAlert className="size-5 text-amber-700" />
@@ -310,15 +419,17 @@ export function Dashboard() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.06)]">
           <div className="border-b border-slate-200 px-5 py-4">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <h2 className="text-base font-semibold">Tender Dashboard Table</h2>
-                <p className="text-sm text-slate-600">Key dates, values, status, and quick tender actions for daily follow-up.</p>
+                <p className="text-sm text-slate-600">
+                  Sorted by last date for daily tender review, deadline tracking, and quick actions.
+                </p>
               </div>
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[220px_150px_160px_150px_150px]">
-                <label className="relative md:hidden">
+                <label className="relative sm:hidden">
                   <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" />
                   <input
                     value={state.search}
@@ -327,19 +438,21 @@ export function Dashboard() {
                     className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-emerald-600"
                   />
                 </label>
-                <select value={state.statusFilter} onChange={(event) => setState((current) => ({ ...current, statusFilter: event.target.value as StatusFilter }))} className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none">
-                  {(["All", "Critical", "Urgent", "Upcoming", "Active", "Closed"] as StatusFilter[]).map((status) => (
-                    <option key={status}>{status}</option>
-                  ))}
-                </select>
-                <select value={state.portalFilter} onChange={(event) => setState((current) => ({ ...current, portalFilter: event.target.value }))} className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none">
-                  {portals.map((portal) => (
-                    <option key={portal}>{portal}</option>
-                  ))}
-                </select>
-                <input value={state.dateFrom} onChange={(event) => setState((current) => ({ ...current, dateFrom: event.target.value }))} type="date" className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none" />
-                <input value={state.dateTo} onChange={(event) => setState((current) => ({ ...current, dateTo: event.target.value }))} type="date" className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none" />
-                <div className="flex gap-2">
+                <div className={`${showMobileFilters ? "grid" : "hidden"} gap-2 sm:contents`}>
+                  <select value={state.statusFilter} onChange={(event) => setState((current) => ({ ...current, statusFilter: event.target.value as StatusFilter }))} className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none">
+                    {(["All", "Critical", "Urgent", "Upcoming", "Active", "Closed"] as StatusFilter[]).map((status) => (
+                      <option key={status}>{status}</option>
+                    ))}
+                  </select>
+                  <select value={state.portalFilter} onChange={(event) => setState((current) => ({ ...current, portalFilter: event.target.value }))} className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none">
+                    {portals.map((portal) => (
+                      <option key={portal}>{portal}</option>
+                    ))}
+                  </select>
+                  <input value={state.dateFrom} onChange={(event) => setState((current) => ({ ...current, dateFrom: event.target.value }))} type="date" className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none" />
+                  <input value={state.dateTo} onChange={(event) => setState((current) => ({ ...current, dateTo: event.target.value }))} type="date" className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm outline-none" />
+                </div>
+                <div className="hidden gap-2 sm:flex">
                   <button onClick={() => importInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold">
                     <FileSpreadsheet className="size-4" />
                     Import
@@ -357,39 +470,55 @@ export function Dashboard() {
             </div>
           </div>
 
+          {showMobileFilters ? (
+            <div className="border-b border-slate-100 bg-slate-50 px-5 py-3 sm:hidden">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Filters</p>
+              <p className="mt-1 text-xs text-slate-500">Status, portal, and last-date range.</p>
+            </div>
+          ) : null}
+
           {state.isLoading ? <DashboardSkeleton /> : null}
 
-          {!state.isLoading && filteredTenders.length === 0 ? (
+          {!state.isLoading && sortedTenders.length === 0 ? (
             <EmptyState />
           ) : null}
 
-          {!state.isLoading && filteredTenders.length > 0 ? (
+          {!state.isLoading && sortedTenders.length > 0 ? (
             <>
               <div className="hidden overflow-x-auto lg:block">
-                <table className="min-w-[1240px] divide-y divide-slate-200 text-sm">
-                  <thead className="sticky top-0 z-10 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+                <table className="min-w-[1380px] divide-y divide-slate-200 text-sm">
+                  <thead className="sticky top-0 z-10 bg-slate-100/95 text-left text-xs uppercase tracking-wide text-slate-600 backdrop-blur">
                     <tr>
                       <th className="px-4 py-3">Tender Name</th>
                       <th className="px-4 py-3">Authority</th>
                       <th className="px-4 py-3">Tender ID</th>
-                      <th className="px-4 py-3">Last Date</th>
+                      <th className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1">
+                          Last Date
+                          <ChevronDown className="size-3 text-slate-400" />
+                        </span>
+                      </th>
                       <th className="px-4 py-3">Pre-bid Date</th>
                       <th className="px-4 py-3">Open Date</th>
                       <th className="px-4 py-3">Days Left</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">EMD</th>
+                      <th className="px-4 py-3">Tender Fee</th>
                       <th className="px-4 py-3">Estimated Cost</th>
                       <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredTenders.map((tender) => (
+                    {sortedTenders.map((tender) => (
                       <DesktopTenderRow
                         key={tender.id}
                         tender={tender}
                         onView={() => setViewTender(tender)}
                         onEdit={() => startEdit(tender)}
                         onDelete={() => void deleteTender(tender.id)}
+                        menuOpen={openActionMenuId === tender.id}
+                        onToggleMenu={() => setOpenActionMenuId((current) => (current === tender.id ? null : tender.id))}
+                        onCloseMenu={() => setOpenActionMenuId(null)}
                       />
                     ))}
                   </tbody>
@@ -397,7 +526,7 @@ export function Dashboard() {
               </div>
 
               <div className="grid gap-3 p-4 lg:hidden">
-                {filteredTenders.map((tender) => (
+                {sortedTenders.map((tender) => (
                   <MobileTenderCard
                     key={tender.id}
                     tender={tender}
@@ -412,7 +541,20 @@ export function Dashboard() {
         </section>
       </div>
 
-      {viewTender ? <TenderDetails tender={viewTender} onClose={() => setViewTender(null)} /> : null}
+      {viewTender ? (
+        <TenderDetails
+          tender={viewTender}
+          onClose={() => setViewTender(null)}
+          onEdit={() => {
+            setViewTender(null);
+            startEdit(viewTender);
+          }}
+          onDelete={async () => {
+            await deleteTender(viewTender.id);
+            setViewTender(null);
+          }}
+        />
+      ) : null}
       {editTender ? (
         <EditTenderModal
           tender={editTender}
@@ -457,41 +599,176 @@ function AlertCard({ title, tone, tenders }: { title: string; tone: keyof typeof
   );
 }
 
+function CompactMetricCard({ label, value, note }: { label: string; value: string | number; note: string }) {
+  return (
+    <div className="flex min-h-[82px] flex-col justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <div className="flex items-end justify-between gap-2">
+        <p className="text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
+        <p className="max-w-[84px] text-right text-[11px] leading-4 text-slate-400">{note}</p>
+      </div>
+    </div>
+  );
+}
+
+function NextDeadlineCard({ tender }: { tender: Tender | null }) {
+  if (!tender) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+        <p className="text-sm font-semibold text-slate-900">Next Deadline</p>
+        <p className="mt-2 text-sm text-slate-500">No upcoming submission deadlines.</p>
+      </div>
+    );
+  }
+
+  const status = getTenderStatus(tender.lastDate);
+  const left = daysLeft(tender.lastDate);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Next Deadline</p>
+          <p className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-slate-700">{tender.tenderName || "-"}</p>
+        </div>
+        <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${statusStyles[status]}`}>{status}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-slate-50 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Last Date</p>
+          <p className="mt-1 text-sm font-medium text-slate-800">{formatTenderDate(tender.lastDate)}</p>
+        </div>
+        <div className="rounded-xl bg-slate-50 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Days Left</p>
+          <p className="mt-1 text-sm font-medium text-slate-800">{left === null ? "-" : left < 0 ? "Past" : left}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactAlertCount({
+  label,
+  count,
+  tone
+}: {
+  label: string;
+  count: number;
+  tone: keyof typeof statusStyles;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-slate-600">{label}</p>
+        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${statusStyles[tone]}`}>{count}</span>
+      </div>
+    </div>
+  );
+}
+
 function DesktopTenderRow({
   tender,
   onView,
   onEdit,
-  onDelete
+  onDelete,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu
 }: {
   tender: Tender;
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
 }) {
   const status = getTenderStatus(tender.lastDate);
   const left = daysLeft(tender.lastDate);
   return (
-    <tr className="align-top transition hover:bg-slate-50">
-      <td className="max-w-xs px-4 py-4 font-medium text-slate-950">{tender.tenderName || "-"}</td>
-      <td className="px-4 py-4 text-slate-700">{tender.authority || "-"}</td>
+    <tr className="align-top transition hover:bg-emerald-50/40">
+      <td className="max-w-xs px-4 py-4 font-medium text-slate-950">
+        <div className="line-clamp-2 leading-6">{tender.tenderName || "-"}</div>
+      </td>
+      <td className="max-w-[240px] px-4 py-4 text-slate-700">
+        <div className="line-clamp-2 leading-6">{tender.authority || "-"}</div>
+      </td>
       <td className="px-4 py-4 font-mono text-xs text-slate-700">{tender.tenderId || "-"}</td>
-      <td className="px-4 py-4 text-slate-700">{formatTenderDate(tender.lastDate)}</td>
+      <td className="px-4 py-4 font-medium text-slate-800">{formatTenderDate(tender.lastDate)}</td>
       <td className="px-4 py-4 text-slate-700">{formatTenderDate(tender.preBidDate)}</td>
       <td className="px-4 py-4 text-slate-700">{formatTenderDate(tender.openDate)}</td>
-      <td className="px-4 py-4 font-semibold">{left === null ? "-" : left < 0 ? "Past" : left}</td>
+      <td className="px-4 py-4 font-semibold text-slate-900">{left === null ? "-" : left < 0 ? "Past" : left}</td>
       <td className="px-4 py-4">
         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusStyles[status]}`}>{status}</span>
       </td>
       <td className="px-4 py-4 text-slate-700">{tender.emd || "-"}</td>
+      <td className="px-4 py-4 text-slate-700">{tender.tenderFee || "-"}</td>
       <td className="px-4 py-4 text-slate-700">{tender.estimatedCost || "-"}</td>
       <td className="px-4 py-4">
-        <div className="flex justify-end gap-2">
-          <ActionButton onClick={onView} aria="View tender details" icon={<Eye className="size-4" />} />
-          <ActionButton onClick={onEdit} aria="Edit tender" icon={<Pencil className="size-4" />} />
-          <ActionButton onClick={onDelete} aria="Delete tender" icon={<Trash2 className="size-4" />} danger />
+        <div className="relative flex justify-end">
+          <button
+            onClick={onToggleMenu}
+            aria-label="Tender actions"
+            className="rounded-xl border border-slate-300 bg-white p-2 text-slate-700 shadow-sm"
+          >
+            <MoreHorizontal className="size-4" />
+          </button>
+          {menuOpen ? (
+            <div className="absolute right-0 top-11 z-20 w-40 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+              <MenuAction
+                label="View"
+                icon={<Eye className="size-4" />}
+                onClick={() => {
+                  onCloseMenu();
+                  onView();
+                }}
+              />
+              <MenuAction
+                label="Edit"
+                icon={<Pencil className="size-4" />}
+                onClick={() => {
+                  onCloseMenu();
+                  onEdit();
+                }}
+              />
+              <MenuAction
+                label="Delete"
+                icon={<Trash2 className="size-4" />}
+                onClick={() => {
+                  onCloseMenu();
+                  onDelete();
+                }}
+                danger
+              />
+            </div>
+          ) : null}
         </div>
       </td>
     </tr>
+  );
+}
+
+function MenuAction({
+  label,
+  icon,
+  onClick,
+  danger = false
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${
+        danger ? "text-red-700 hover:bg-red-50" : "text-slate-700 hover:bg-slate-50"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -512,22 +789,25 @@ function MobileTenderCard({
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-base font-semibold text-slate-950">{tender.tenderName || "-"}</p>
-          <p className="mt-1 text-sm text-slate-600">{tender.authority || "-"}</p>
+          <p className="line-clamp-2 text-base font-semibold leading-6 text-slate-950">{tender.tenderName || "-"}</p>
+          <p className="mt-1 line-clamp-1 text-sm text-slate-600">{tender.authority || "-"}</p>
         </div>
-        <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${statusStyles[status]}`}>{status}</span>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${statusStyles[status]}`}>{status}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+            {left === null ? "-" : left < 0 ? "Past" : `${left}d`}
+          </span>
+        </div>
       </div>
       <div className="mt-4 grid gap-2 text-sm text-slate-700">
         <InfoLine label="Last Date" value={formatTenderDate(tender.lastDate)} />
-        <InfoLine label="Days Left" value={left === null ? "-" : left < 0 ? "Past" : String(left)} />
         <InfoLine label="Tender ID" value={tender.tenderId || "-"} />
-        <InfoLine label="Estimated Cost" value={tender.estimatedCost || "-"} />
         <InfoLine label="EMD" value={tender.emd || "-"} />
+        <InfoLine label="Estimated Cost" value={tender.estimatedCost || "-"} />
       </div>
       <div className="mt-4 flex gap-2">
         <ActionPill onClick={onView} label="View" />
         <ActionPill onClick={onEdit} label="Edit" />
-        <ActionPill onClick={onDelete} label="Delete" danger />
       </div>
     </div>
   );
@@ -539,18 +819,6 @@ function InfoLine({ label, value }: { label: string; value: string }) {
       <span className="text-slate-500">{label}</span>
       <span className="text-right font-medium text-slate-800">{value}</span>
     </div>
-  );
-}
-
-function ActionButton({ onClick, aria, icon, danger = false }: { onClick: () => void; aria: string; icon: React.ReactNode; danger?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={aria}
-      className={`rounded-xl border p-2 ${danger ? "border-red-200 text-red-700" : "border-slate-300 text-slate-700"}`}
-    >
-      {icon}
-    </button>
   );
 }
 
@@ -590,52 +858,161 @@ function EmptyState() {
   );
 }
 
-function TenderDetails({ tender, onClose }: { tender: Tender; onClose: () => void }) {
-  const sections = [
-    {
-      title: "Basic tender info",
-      fields: ["tenderName", "authority", "tenderId", "portalName"] as Array<keyof Tender>
-    },
-    {
-      title: "Key dates",
-      fields: ["lastDate", "preBidDate", "openDate"] as Array<keyof Tender>
-    },
-    {
-      title: "Financial details",
-      fields: ["emd", "tenderFee", "estimatedCost", "bidValidity", "workCompletionPeriod"] as Array<keyof Tender>
-    },
-    {
-      title: "Eligibility and resources",
-      fields: ["similarWorkCriteria", "technicalEligibility", "financialEligibility", "requiredKeyPersonnel", "requiredMachinery"] as Array<keyof Tender>
-    },
-    {
-      title: "Documents and submission",
-      fields: ["documentsRequired", "physicalDocumentSubmission", "workLocation", "clientDepartment"] as Array<keyof Tender>
-    }
+function TenderDetails({
+  tender,
+  onClose,
+  onEdit,
+  onDelete
+}: {
+  tender: Tender;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void | Promise<void>;
+}) {
+  const missingFields = [
+    { label: "Tender Name", value: tender.tenderName },
+    { label: "Authority", value: tender.authority },
+    { label: "Tender ID", value: tender.tenderId },
+    { label: "Portal Name", value: tender.portalName },
+    { label: "Work Location", value: tender.workLocation },
+    { label: "Client Department", value: tender.clientDepartment },
+    { label: "Open Date", value: tender.openDate },
+    { label: "Pre-bid Date", value: tender.preBidDate },
+    { label: "Last Date", value: tender.lastDate },
+    { label: "EMD", value: tender.emd },
+    { label: "Tender Fee", value: tender.tenderFee },
+    { label: "Estimated Cost", value: tender.estimatedCost },
+    { label: "Bid Validity", value: tender.bidValidity },
+    { label: "Work Completion Period", value: tender.workCompletionPeriod },
+    { label: "Selection Method", value: tender.selectionMethod },
+    { label: "Similar Work Criteria", value: tender.similarWorkCriteria },
+    { label: "Technical Eligibility", value: tender.technicalEligibility },
+    { label: "Financial Eligibility", value: tender.financialEligibility },
+    { label: "Required Key Personnel", value: tender.requiredKeyPersonnel },
+    { label: "Required Machinery", value: tender.requiredMachinery },
+    { label: "Physical Document Submission", value: tender.physicalDocumentSubmission },
+    { label: "Documents Required", value: tender.documentsRequired }
+  ].filter((field) => !String(field.value || "").trim());
+
+  const timeline = [
+    { label: "Open Date", value: tender.openDate, tone: "bg-blue-100 text-blue-700" },
+    { label: "Pre-bid Date", value: tender.preBidDate, tone: "bg-amber-100 text-amber-700" },
+    { label: "Last Date", value: tender.lastDate, tone: "bg-red-100 text-red-700" },
+    { label: "Technical Opening Date", value: "", tone: "bg-slate-100 text-slate-700" },
+    { label: "Financial Opening Date", value: "", tone: "bg-slate-100 text-slate-700" }
   ];
 
   return (
     <Modal title="Tender Details" onClose={onClose}>
       <div className="space-y-4">
-        {sections.map((section) => (
-          <section key={section.title} className="rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">{section.title}</h3>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              {section.fields.map((fieldKey) => {
-                const label = formFields.find((field) => field.key === fieldKey)?.label ?? fieldKey;
-                const value = fieldKey.includes("Date") ? formatTenderDate(String(tender[fieldKey] || "")) : String(tender[fieldKey] || "-");
-                return (
-                  <div key={String(fieldKey)} className="rounded-xl bg-slate-50 px-3 py-2">
-                    <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-                    <p className="mt-1 text-sm text-slate-900">{value}</p>
-                  </div>
-                );
-              })}
+        <section className="rounded-2xl border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Basic Details</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <DetailField label="Tender Name" value={tender.tenderName} />
+            <DetailField label="Authority" value={tender.authority} />
+            <DetailField label="Tender ID" value={tender.tenderId} mono />
+            <DetailField label="Portal Name" value={tender.portalName} />
+            <DetailField label="Work Location" value={tender.workLocation} />
+            <DetailField label="Client Department" value={tender.clientDepartment} />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Key Dates Timeline</h3>
+          <div className="mt-4 space-y-3">
+            {timeline.map((item) => (
+              <div key={item.label} className="flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                <div className={`mt-0.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${item.tone}`}>{item.label}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-900">
+                    {item.value ? formatTenderDate(item.value) : "Not available"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Financial Summary</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <DetailField label="EMD" value={tender.emd} />
+            <DetailField label="Tender Fee" value={tender.tenderFee} />
+            <DetailField label="Estimated Cost" value={tender.estimatedCost} />
+            <DetailField label="Bid Validity" value={tender.bidValidity} />
+            <DetailField label="Work Completion Period" value={tender.workCompletionPeriod} />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Eligibility</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <DetailField label="Selection Method" value={tender.selectionMethod} />
+            <DetailField label="Similar Work Criteria" value={tender.similarWorkCriteria} />
+            <DetailField label="Technical Eligibility" value={tender.technicalEligibility} />
+            <DetailField label="Financial Eligibility" value={tender.financialEligibility} />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Requirements</h3>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <DetailField label="Required Key Personnel" value={tender.requiredKeyPersonnel} />
+            <DetailField label="Required Machinery" value={tender.requiredMachinery} />
+            <DetailField label="Physical Document Submission" value={tender.physicalDocumentSubmission} />
+            <DetailField label="Documents Required" value={tender.documentsRequired} />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Notes / Missing Data</h3>
+          {missingFields.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {missingFields.map((field) => (
+                <span
+                  key={field.label}
+                  className="inline-flex rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800"
+                >
+                  {field.label}
+                </span>
+              ))}
             </div>
-          </section>
-        ))}
+          ) : (
+            <p className="mt-3 text-sm text-slate-600">No incomplete fields flagged for this tender.</p>
+          )}
+        </section>
+      </div>
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <button onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold">
+          Back to Dashboard
+        </button>
+        <button onClick={onEdit} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
+          <Pencil className="size-4" />
+          Edit Tender
+        </button>
+        <button onClick={() => void onDelete()} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white">
+          <Trash2 className="size-4" />
+          Delete Tender
+        </button>
       </div>
     </Modal>
+  );
+}
+
+function DetailField({
+  label,
+  value,
+  mono = false
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-3 py-2">
+      <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
+      <p className={`mt-1 text-sm text-slate-900 ${mono ? "font-mono" : ""}`}>{value || "Not available"}</p>
+    </div>
   );
 }
 
@@ -714,6 +1091,12 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
 }
 
+function compareTenderDates(a?: string | null, b?: string | null) {
+  const aTime = a ? new Date(a).getTime() : Number.MAX_SAFE_INTEGER;
+  const bTime = b ? new Date(b).getTime() : Number.MAX_SAFE_INTEGER;
+  return aTime - bTime;
+}
+
 function scheduleBrowserNotifications(notifications: ScheduledNotification[]) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   for (const notification of notifications) {
@@ -736,4 +1119,3 @@ function scheduleBrowserNotifications(notifications: ScheduledNotification[]) {
     }, delay);
   }
 }
-

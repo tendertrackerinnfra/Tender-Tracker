@@ -51,7 +51,49 @@ export type ScheduledNotification = {
   notifyAt: string;
   title: string;
   body: string;
+  sourceRef?: string;
+  deliveredAt?: string;
   createdAt: string;
+};
+
+export type AppNotificationLevel = "info" | "success" | "warning" | "critical";
+
+export type AppNotification = {
+  id: string;
+  type:
+    | "tenderAdded"
+    | "tenderUpdated"
+    | "tenderDeleted"
+    | "reminderScheduled"
+    | "closingToday"
+    | "closingTomorrow"
+    | "closingWithin7Days"
+    | "missingRequiredFields"
+    | "preBidTomorrow"
+    | "deadlineApproaching"
+    | "dailyMorningSummary"
+    | "dailyEveningSummary"
+    | "dailyNightSummary";
+  title: string;
+  body: string;
+  url: string;
+  level: AppNotificationLevel;
+  isRead: boolean;
+  isImportant: boolean;
+  tenderId?: string;
+  sourceRef?: string;
+  createdAt: string;
+};
+
+export type NotificationSettings = {
+  pushEnabled: boolean;
+  dailyMorningEnabled: boolean;
+  dailyEveningEnabled: boolean;
+  dailyNightEnabled: boolean;
+  morningTime: string;
+  eveningTime: string;
+  nightTime: string;
+  lastDateReminderDays: number[];
 };
 
 export type TenderExtraction = TenderInput & {

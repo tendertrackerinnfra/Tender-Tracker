@@ -9,6 +9,45 @@ import type { ScheduledNotification, TenderExtraction, TenderFieldDebug, TenderI
 import { normalizeTenderInput } from "@/lib/tender-types";
 import { blankTender, formFields, fromInputDate, requiredPreviewFields, toInputDate } from "@/components/tender-ui";
 
+const fieldSections: Array<{
+  title: string;
+  description: string;
+  fields: TenderInputKey[];
+}> = [
+  {
+    title: "Basic Details",
+    description: "Primary tender identity and portal reference.",
+    fields: ["tenderName", "authority", "tenderId", "portalName"]
+  },
+  {
+    title: "Key Dates",
+    description: "Submission and meeting dates used for dashboard tracking.",
+    fields: ["openDate", "lastDate", "preBidDate"]
+  },
+  {
+    title: "Financial Details",
+    description: "Bid values, fee details, and validity information.",
+    fields: ["emd", "tenderFee", "estimatedCost", "bidValidity", "workCompletionPeriod"]
+  },
+  {
+    title: "Eligibility Notes",
+    description: "Selection criteria and technical or financial qualification notes.",
+    fields: ["selectionMethod", "similarWorkCriteria", "technicalEligibility", "financialEligibility"]
+  },
+  {
+    title: "Tender Requirements",
+    description: "Documents, resources, and submission support details.",
+    fields: [
+      "requiredKeyPersonnel",
+      "requiredMachinery",
+      "physicalDocumentSubmission",
+      "documentsRequired",
+      "workLocation",
+      "clientDepartment"
+    ]
+  }
+];
+
 export function UploadTender() {
   const router = useRouter();
   const [preview, setPreview] = useState<TenderInput | null>(null);
@@ -16,11 +55,11 @@ export function UploadTender() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [toast, setToast] = useState("");
   const [ocrProgress, setOcrProgress] = useState("");
   const [rawPreviewText, setRawPreviewText] = useState("");
   const [extractionDebug, setExtractionDebug] = useState<Partial<Record<TenderInputKey, TenderFieldDebug>>>({});
   const tenderFileRef = useRef<HTMLInputElement>(null);
-  const templateFileRef = useRef<HTMLInputElement>(null);
 
   async function extractPdf(file: File) {
     setIsExtracting(true);
@@ -84,6 +123,7 @@ export function UploadTender() {
       if (!response.ok) throw new Error(data.error ?? "Unable to save tender.");
       scheduleBrowserNotifications(data.notifications ?? []);
       setMessage("Tender added and reminders scheduled. Returning to dashboard...");
+      setToast("Tender saved successfully.");
       setTimeout(() => router.push("/"), 700);
     } catch (error) {
       setMessage((error as Error).message);
@@ -113,25 +153,21 @@ export function UploadTender() {
       }
     >
       <div className="space-y-5 pb-24 md:pb-6">
+        {toast ? <SuccessToast message={toast} /> : null}
         {message ? <Banner message={message} /> : null}
 
-        <section className="grid gap-5 xl:grid-cols-2">
+        <section className="space-y-5">
           <UploadBox
-            title="Upload RFP / NIT / Tender PDF"
-            description="Supported format: PDF. Original tender files can use browser OCR fallback if scanned."
-            buttonLabel="Select Tender PDF"
+            title="Upload Tender PDF"
+            description="Upload original RFP/NIT/Tender PDF or ChatGPT TT_ Template PDF."
+            buttonLabel="Select PDF"
             isExtracting={isExtracting}
             inputRef={tenderFileRef}
             onFile={extractPdf}
           />
-          <UploadBox
-            title="Upload ChatGPT TT_ Template PDF"
-            description="Use the Standard Tender Tracker template when you want exact field extraction without fuzzy matching."
-            buttonLabel="Select TT_ Template PDF"
-            isExtracting={isExtracting}
-            inputRef={templateFileRef}
-            onFile={extractPdf}
-          />
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            Upload ChatGPT TT_ Template PDF for exact field import.
+          </div>
         </section>
 
         {isExtracting ? <ExtractionSkeleton /> : null}
@@ -159,51 +195,63 @@ export function UploadTender() {
             </div>
           ) : null}
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {formFields.map((field) => {
-              const debug = extractionDebug[field.key];
-              const value = preview?.[field.key] ?? "";
-              const isRequired = requiredPreviewFields.some((required) => required.key === field.key);
-              const isBlankRequired = isRequired && !String(value).trim();
-              const isLowConfidence = debug?.confidence === "low";
-              const isMediumConfidence = debug?.confidence === "medium";
-              const inputTone = isBlankRequired
-                ? "border-red-400 bg-red-50 focus:border-red-600 focus:ring-red-100"
-                : isLowConfidence || isMediumConfidence
-                  ? "border-amber-400 bg-amber-50 focus:border-amber-600 focus:ring-amber-100"
-                  : "border-slate-300 bg-slate-50 focus:border-emerald-600 focus:ring-emerald-100";
+          <div className="mt-5 space-y-5">
+            {fieldSections.map((section) => (
+              <section key={section.title} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700">{section.title}</h3>
+                  <p className="mt-1 text-sm text-slate-500">{section.description}</p>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {section.fields.map((fieldKey) => {
+                    const field = formFields.find((item) => item.key === fieldKey);
+                    if (!field) return null;
+                    const debug = extractionDebug[field.key];
+                    const value = preview?.[field.key] ?? "";
+                    const isRequired = requiredPreviewFields.some((required) => required.key === field.key);
+                    const isBlankRequired = isRequired && !String(value).trim();
+                    const isLowConfidence = debug?.confidence === "low";
+                    const isMediumConfidence = debug?.confidence === "medium";
+                    const inputTone = isBlankRequired
+                      ? "border-red-400 bg-red-50 focus:border-red-600 focus:ring-red-100"
+                      : isLowConfidence || isMediumConfidence
+                        ? "border-amber-400 bg-amber-50 focus:border-amber-600 focus:ring-amber-100"
+                        : "border-slate-300 bg-white focus:border-emerald-600 focus:ring-emerald-100";
 
-              return (
-                <label key={field.key} className="grid gap-1 text-sm font-medium text-slate-700">
-                  <span className="flex items-center justify-between gap-2">
-                    <span>{field.label}</span>
-                    {isRequired ? (
-                      <span className={isBlankRequired ? "text-xs font-semibold text-red-700" : "text-xs font-semibold text-slate-500"}>Required</span>
-                    ) : (
-                      <span className="text-xs text-slate-400">Optional</span>
-                    )}
-                  </span>
-                  <input
-                    value={field.type === "datetime-local" ? toInputDate(preview?.[field.key]) : preview?.[field.key] ?? ""}
-                    onChange={(event) =>
-                      setPreview((current) => ({
-                        ...(current ?? blankTender),
-                        [field.key]: field.type === "datetime-local" ? fromInputDate(event.target.value) : event.target.value
-                      }))
-                    }
-                    type={field.type ?? "text"}
-                    className={`rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 ${inputTone}`}
-                  />
-                  <span className="text-xs text-slate-500">
-                    {debug?.sourceLineText
-                      ? `Line ${debug.sourceLineNumber ?? "-"}: ${debug.sourceLineText.slice(0, 120)}`
-                      : isRequired
-                        ? "Required for tender import."
-                        : "Optional field."}
-                  </span>
-                </label>
-              );
-            })}
+                    return (
+                      <label key={field.key} className="grid gap-1 text-sm font-medium text-slate-700">
+                        <span className="flex items-center justify-between gap-2">
+                          <span>{field.label}</span>
+                          {isRequired ? (
+                            <span className={isBlankRequired ? "text-xs font-semibold text-red-700" : "text-xs font-semibold text-slate-500"}>Required</span>
+                          ) : (
+                            <span className="text-xs text-slate-400">Optional</span>
+                          )}
+                        </span>
+                        <input
+                          value={field.type === "datetime-local" ? toInputDate(preview?.[field.key]) : preview?.[field.key] ?? ""}
+                          onChange={(event) =>
+                            setPreview((current) => ({
+                              ...(current ?? blankTender),
+                              [field.key]: field.type === "datetime-local" ? fromInputDate(event.target.value) : event.target.value
+                            }))
+                          }
+                          type={field.type ?? "text"}
+                          className={`rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 ${inputTone}`}
+                        />
+                        <span className="text-xs text-slate-500">
+                          {debug?.sourceLineText
+                            ? `Line ${debug.sourceLineNumber ?? "-"}: ${debug.sourceLineText.slice(0, 120)}`
+                            : isRequired
+                              ? "Required for tender import."
+                              : "Optional field."}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
 
           {rawPreviewText ? (
@@ -250,6 +298,9 @@ export function UploadTender() {
 
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 backdrop-blur md:hidden">
           <div className="mx-auto flex max-w-6xl gap-2">
+            <Link href="/" className="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">
+              Back
+            </Link>
             <button onClick={clearPreview} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">
               Clear
             </button>
@@ -264,7 +315,13 @@ export function UploadTender() {
           </div>
         </div>
 
-        <div className="hidden md:flex md:justify-end">
+        <div className="hidden md:flex md:justify-end md:gap-2">
+          <Link href="/" className="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">
+            Back to Dashboard
+          </Link>
+          <button onClick={clearPreview} className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">
+            Clear
+          </button>
           <button
             onClick={saveTender}
             disabled={!preview || isSaving}
@@ -281,6 +338,14 @@ export function UploadTender() {
 
 function Banner({ message }: { message: string }) {
   return <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-[0_8px_20px_rgba(15,23,42,0.05)]">{message}</div>;
+}
+
+function SuccessToast({ message }: { message: string }) {
+  return (
+    <div className="fixed right-4 top-20 z-50 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+      {message}
+    </div>
+  );
 }
 
 function UploadBox({
@@ -400,4 +465,3 @@ function scheduleBrowserNotifications(notifications: ScheduledNotification[]) {
     }, delay);
   }
 }
-
