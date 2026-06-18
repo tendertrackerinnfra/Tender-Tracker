@@ -413,7 +413,7 @@ async function createDailyDigests(settings: NotificationSettings, tenders: Tende
       body: config.body,
       url: "/notifications",
       level: "info",
-      isImportant: config.key !== "evening"
+      isImportant: true
     });
   }
 }

@@ -9,6 +9,7 @@ import {
   useRef,
   useState
 } from "react";
+import Link from "next/link";
 import type { AppNotification, NotificationSettings } from "@/lib/tender-types";
 
 type NotificationContextValue = {
@@ -36,6 +37,7 @@ export function NotificationClient({ children }: { children: React.ReactNode }) 
   const [permissionState, setPermissionState] = useState<NotificationPermission | "unsupported">(
     typeof Notification === "undefined" ? "unsupported" : Notification.permission
   );
+  const [permissionBannerDismissed, setPermissionBannerDismissed] = useState(false);
   const displayedRef = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
@@ -64,6 +66,13 @@ export function NotificationClient({ children }: { children: React.ReactNode }) 
   }, [refresh]);
 
   useEffect(() => {
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
+
+  useEffect(() => {
     if (!settings?.pushEnabled || permissionState !== "granted") return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     const publicKey = process.env.NEXT_PUBLIC_TENDER_TRACKER_VAPID_PUBLIC_KEY;
@@ -88,8 +97,15 @@ export function NotificationClient({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (permissionState !== "granted") return;
-    const importantUnread = notifications.filter((item) => !item.isRead && item.isImportant);
-    for (const notification of importantUnread.slice(0, 3)) {
+    const visibleUnread = notifications.filter(
+      (item) =>
+        !item.isRead &&
+        (item.isImportant ||
+          item.type === "dailyMorningSummary" ||
+          item.type === "dailyEveningSummary" ||
+          item.type === "dailyNightSummary")
+    );
+    for (const notification of visibleUnread.slice(0, 5)) {
       if (displayedRef.current.has(notification.id)) continue;
       displayedRef.current.add(notification.id);
       new Notification(notification.title, { body: notification.body });
@@ -111,6 +127,38 @@ export function NotificationClient({ children }: { children: React.ReactNode }) 
 
   return (
     <NotificationContext.Provider value={value}>
+      {!permissionBannerDismissed && settings?.pushEnabled && permissionState === "default" ? (
+        <div className="fixed inset-x-4 top-20 z-40 md:left-auto md:right-6 md:w-[420px]">
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+            <p className="font-semibold">Enable Tender Tracker notifications</p>
+            <p className="mt-1">
+              Allow browser notifications to receive morning, evening, and night tender reminders.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void requestPermission()}
+                className="rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"
+              >
+                Allow Notifications
+              </button>
+              <Link
+                href="/settings"
+                className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+              >
+                Open Settings
+              </Link>
+              <button
+                type="button"
+                onClick={() => setPermissionBannerDismissed(true)}
+                className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {value.importantNotifications.length > 0 && (permissionState === "denied" || permissionState === "unsupported") ? (
         <div className="fixed inset-x-4 top-20 z-40 space-y-2 md:left-auto md:right-6 md:w-[420px]">
           {value.importantNotifications.map((notification) => (
